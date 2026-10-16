@@ -7,7 +7,7 @@ LlmentZero creates structured capability-building material: skill documents writ
 ## Works with
 - Local LLMs
 - ChatGPT and Claude projects (as project sources)
-- Codex folders
+- Grok Bot & Codex (as a Grok Bot skill or in a Codex working folder)
 - AI agents
 
 ## Tiers
