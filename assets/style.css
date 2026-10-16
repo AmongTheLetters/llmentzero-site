@@ -59,7 +59,7 @@ form label{display:block;margin-top:1rem}input,textarea{width:100%;padding:.7rem
 h2.h3{font-family:'Saira Stencil One',sans-serif;font-weight:400;letter-spacing:.04em;font-size:1.3rem;line-height:1.3;margin-top:0;color:var(--ivory)}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 .grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,22rem),1fr))}
-.alt{font-size:.95rem;margin:.2rem .4rem}.addr{font-family:'Share Tech Mono',monospace;color:var(--ivory);word-break:break-all}
+.alt{font-size:.95rem;margin:.2rem .4rem}.addr{font-family:'Share Tech Mono',monospace;color:var(--ivory);overflow-wrap:anywhere}
 .copybox .btn.copy{padding:.4rem .9rem;font-size:.85rem}.copy-status{min-height:1.5em;color:var(--teal);margin:0}
 .terms{margin-top:2rem}.terms summary{list-style:none;display:flex;align-items:baseline;flex-wrap:wrap;gap:.4rem}
 .terms summary::-webkit-details-marker{display:none}.terms summary h2{display:inline;margin:0}
@@ -72,3 +72,34 @@ h2.h3{font-family:'Saira Stencil One',sans-serif;font-weight:400;letter-spacing:
 .terms summary:focus-visible{outline:3px solid var(--brass);outline-offset:4px}.terms-body{margin-top:.8rem}}
 @media (prefers-reduced-motion:reduce){.terms summary::after{transition:none}}
 .terms{scroll-margin-top:5rem}
+.legal{max-width:46rem}.legal h2{font-size:clamp(2rem,4vw,2.4rem);margin-top:2rem}.updated{color:var(--mist);font-size:.9rem}
+.blank{background:var(--gold);color:var(--ink);padding:0 .3em;font-family:'Share Tech Mono',monospace}
+.notice{border:2px solid var(--gold);background:var(--navy);padding:1rem 1.2rem;margin:1.5rem 0}.notice h2{margin-top:0}
+.notice{font-size:10pt;line-height:1.4;break-inside:auto!important;page-break-inside:auto!important;-webkit-box-decoration-break:clone;box-decoration-break:clone}.notice li{margin:.15em 0!important;break-inside:avoid}.notice h2{break-after:avoid}.notice ul{margin:.3em 0}.notice p{margin:.3em 0}.legal .lead{margin:.3em 0 .5em}.legal h1{margin-bottom:.1em}.notice h2{font-size:13pt}
+.legal-links{list-style:none;padding:0;margin:.6rem 0 0;display:flex;flex-wrap:wrap;gap:.4rem 1.2rem}.legal-links a{display:inline-block;padding:.3rem 0}
+.legal dt{font-weight:700;margin-top:.8rem}.legal dd{margin:.2rem 0 0 1.2rem}.legal ol[type=a]{padding-left:1.6rem}.legal ol li,.legal ul li{margin:.3rem 0}
+@media print{
+@page{size:Letter;margin:18mm 16mm 18mm 16mm}
+html,body{background:#fff!important;color:#111!important;font-size:11pt;line-height:1.5}
+*{box-shadow:none!important;text-shadow:none!important}
+header,.skip,.nav-toggle,canvas,.legal-links,footer nav{display:none!important}
+main,section,.wrap,.legal{display:block!important;min-height:0!important;height:auto!important;max-width:none!important;padding:0!important;margin:0!important;overflow:visible!important;position:static!important}
+.legal h1{font-size:22pt;margin:0 0 .3em;color:#111}
+.legal h2{font-size:15pt;margin:1.1em 0 .4em;color:#111}
+.legal h3{font-size:12.5pt;margin:.9em 0 .3em}
+h1,h2,h3,h4,dt{break-after:avoid;page-break-after:avoid}
+p,li,dd{orphans:3;widows:3}
+.eyebrow,.updated,.lead{color:#333!important}
+a{color:#111!important;text-decoration:underline}
+.notice{background:#fff!important;border:1.5pt solid #555!important;padding:.6em .9em;margin:1em 0;break-inside:avoid;page-break-inside:avoid}
+.notice h2{margin-top:0}
+dl>div,dt,dd,li,tr,blockquote,.copybox{break-inside:avoid;page-break-inside:avoid}
+dd{break-before:avoid}
+footer{border:0!important;margin-top:1.5em;padding:0!important;color:#333!important;font-size:9pt;break-inside:avoid;break-before:avoid}
+footer p{margin:.2em 0}footer .wrap>p+p{display:none!important}footer{margin-top:.8em!important}
+}
+@media print{
+@page{margin-top:23mm;@top-left{content:url("/assets/logo/llmentzero-print-header.svg");vertical-align:middle;text-align:left}}
+}
+.docid{font-size:.8rem;opacity:.85;margin-top:2rem;overflow-wrap:anywhere}
+@media print{.docid{font-size:7.5pt;line-height:1.25;color:#333;margin:.4em 0 0;overflow-wrap:anywhere}}
