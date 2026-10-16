@@ -61,3 +61,14 @@ h2.h3{font-family:'Saira Stencil One',sans-serif;font-weight:400;letter-spacing:
 .grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,22rem),1fr))}
 .alt{font-size:.95rem;margin:.2rem .4rem}.addr{font-family:'Share Tech Mono',monospace;color:var(--ivory);word-break:break-all}
 .copybox .btn.copy{padding:.4rem .9rem;font-size:.85rem}.copy-status{min-height:1.5em;color:var(--teal);margin:0}
+.terms{margin-top:2rem}.terms summary{list-style:none;display:flex;align-items:baseline;flex-wrap:wrap;gap:.4rem}
+.terms summary::-webkit-details-marker{display:none}.terms summary h2{display:inline;margin:0}
+.terms .hint{display:none}
+@media (max-width:760px){.terms{border:1px solid var(--line);border-top:3px solid var(--gold);background:var(--navy);padding:.9rem 1rem}
+.terms summary{cursor:pointer;position:relative;padding-right:2rem;min-height:44px}
+.terms summary::after{content:"";position:absolute;right:.3rem;top:.6rem;width:.6rem;height:.6rem;border-right:2px solid var(--gold);border-bottom:2px solid var(--gold);transform:rotate(45deg);transition:transform .2s}
+.terms[open] summary::after{transform:rotate(-135deg);top:.9rem}
+.terms .hint{display:inline;font-family:'Tektur',sans-serif;color:var(--mist);font-size:.95rem}
+.terms summary:focus-visible{outline:3px solid var(--brass);outline-offset:4px}.terms-body{margin-top:.8rem}}
+@media (prefers-reduced-motion:reduce){.terms summary::after{transition:none}}
+.terms{scroll-margin-top:5rem}
