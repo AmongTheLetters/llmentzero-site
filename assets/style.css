@@ -36,3 +36,22 @@ ol.steps{counter-reset:s;list-style:none;padding:0}ol.steps li{counter-increment
 ol.steps li::before{content:counter(s,decimal-leading-zero);position:absolute;left:.8rem;top:.9rem;font-size:1.4rem;color:var(--gold)}
 footer{border-top:1px solid var(--line);color:var(--mist);font-size:.9rem;padding:2rem 0}
 form label{display:block;margin-top:1rem}input,textarea{width:100%;padding:.7rem;background:var(--navy);color:var(--ivory);border:1px solid var(--mist);font:inherit}
+/* Mobile nav: hamburger + compact dropdown panel (desktop unchanged) */
+.nav{position:relative}.nav-toggle{display:none}
+@media (max-width:760px){
+ header .wrap{flex-wrap:nowrap}
+ .nav-toggle{display:inline-flex;align-items:center;gap:.55rem;min-height:44px;padding:.45rem .9rem;background:transparent;color:var(--brass);border:2px solid var(--gold);font:1rem 'Saira Stencil One',sans-serif;letter-spacing:.1em;text-transform:uppercase;cursor:pointer}
+ .nav-toggle:hover{background:rgba(212,175,55,.12)}
+ .bars,.bars::before,.bars::after{display:block;width:18px;height:2px;background:currentColor;position:relative;transition:transform .2s,opacity .2s}
+ .bars::before,.bars::after{content:"";position:absolute;left:0}.bars::before{top:-6px}.bars::after{top:6px}
+ .nav-toggle[aria-expanded="true"] .bars{background:transparent}
+ .nav-toggle[aria-expanded="true"] .bars::before{transform:translateY(6px) rotate(45deg)}
+ .nav-toggle[aria-expanded="true"] .bars::after{transform:translateY(-6px) rotate(-45deg)}
+ #nav-menu{display:none;position:absolute;right:0;top:calc(100% + .5rem);min-width:13rem;flex-direction:column;gap:0;background:var(--navy);border:1px solid var(--gold);box-shadow:0 12px 30px rgba(0,0,0,.5);padding:.4rem 0;z-index:20}
+ #nav-menu.open{display:flex}
+ #nav-menu a{display:block;padding:.7rem 1.1rem;border-bottom:0;border-left:3px solid transparent}
+ #nav-menu a[aria-current],#nav-menu a:hover{border-left-color:var(--gold)}
+ .no-js #nav-menu{display:flex;position:static;flex-direction:row;flex-wrap:wrap;border:0;box-shadow:none;background:none}
+}
+@media (prefers-reduced-motion:reduce){.bars,.bars::before,.bars::after{transition:none}}
+@media (max-width:760px){.no-js .nav-toggle{display:none}}
