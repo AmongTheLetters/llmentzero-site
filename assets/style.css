@@ -55,3 +55,4 @@ form label{display:block;margin-top:1rem}input,textarea{width:100%;padding:.7rem
 }
 @media (prefers-reduced-motion:reduce){.bars,.bars::before,.bars::after{transition:none}}
 @media (max-width:760px){.no-js .nav-toggle{display:none}}
+.brand{display:inline-block;cursor:pointer;line-height:0}
