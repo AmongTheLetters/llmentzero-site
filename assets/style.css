@@ -1,0 +1,38 @@
+:root{--ink:#0B0F1A;--navy:#121A2B;--gold:#D4AF37;--brass:#E8C872;--teal:#2EC4B6;--ivory:#F4EFE3;--mist:#A9B1C2;--line:#2A3550}
+*{box-sizing:border-box}html{scroll-behavior:smooth}@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+body{margin:0;background:var(--ink);color:var(--ivory);font:1.08rem/1.7 'Tektur',system-ui,sans-serif}
+/* Display: Monoton only at large sizes (floor 2rem / 32px) */
+h1,h2{font-family:'Monoton','Saira Stencil One',sans-serif;font-weight:400;letter-spacing:.04em;line-height:1.2}
+h1{font-size:clamp(2.25rem,6vw,4rem)}h2{font-size:clamp(2rem,3.6vw,2.6rem);color:var(--brass)}
+h3{font-family:'Saira Stencil One',sans-serif;font-weight:400;letter-spacing:.04em;font-size:1.3rem;line-height:1.3}
+.eyebrow,.card .tag{font-family:'Michroma',sans-serif;color:var(--teal);text-transform:uppercase;letter-spacing:.14em;font-size:.78rem;margin:0 0 .4rem}
+code,kbd,pre,.ph,ol.steps li::before{font-family:'Share Tech Mono',monospace}
+a{color:var(--teal)}a:hover{color:var(--brass)}
+:focus-visible{outline:3px solid var(--brass);outline-offset:3px}
+.skip{position:absolute;left:-999px}.skip:focus{left:1rem;top:1rem;background:var(--gold);color:var(--ink);padding:.5rem 1rem;z-index:9}
+.wrap{max-width:1100px;margin:0 auto;padding:0 1.25rem}
+header{border-bottom:1px solid var(--line);background:rgba(11,15,26,.92);position:sticky;top:0;z-index:5}
+header .wrap{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;padding-block:.6rem}
+.brand img{height:64px;width:auto;display:block}
+@media (max-width:480px){.brand img{height:50px}}
+nav ul{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:.2rem 1.1rem}
+nav a{color:var(--ivory);text-decoration:none;font-family:'Saira Stencil One',sans-serif;letter-spacing:.08em;text-transform:uppercase;font-size:.95rem;padding:.4rem 0;border-bottom:2px solid transparent}
+nav a[aria-current],nav a:hover{border-color:var(--gold);color:var(--brass)}
+.hero{position:relative;min-height:78vh;display:grid;place-items:center;text-align:center;overflow:hidden;border-bottom:1px solid var(--line)}
+.hero canvas{position:absolute;inset:0;width:100%;height:100%}
+.hero .copy{position:relative;background:rgba(11,15,26,.82);padding:2rem 2.2rem;border:1px solid var(--gold);max-width:640px;margin:1rem}
+.hero .copy::before,.hero .copy::after{content:"";position:absolute;width:22px;height:22px;border:2px solid var(--gold)}
+.hero .copy::before{top:-8px;left:-8px;border-right:0;border-bottom:0}.hero .copy::after{bottom:-8px;right:-8px;border-left:0;border-top:0}
+.lead{color:var(--mist);font-size:1.15rem}
+.btn{display:inline-block;margin:.4rem;padding:.75rem 1.4rem;border:2px solid var(--gold);color:var(--ink);background:var(--gold);text-decoration:none;font-family:'Saira Stencil One',sans-serif;font-weight:400;font-size:1rem;letter-spacing:.1em;text-transform:uppercase;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--brass)}.btn:hover{background:var(--brass);color:var(--ink)}
+section{padding:3.5rem 0}
+.deco{display:flex;align-items:center;gap:.8rem;color:var(--gold)}.deco::before,.deco::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+.grid{display:grid;gap:1.2rem;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+.card{background:var(--navy);border:1px solid var(--line);border-top:3px solid var(--gold);padding:1.4rem;position:relative}
+.card h3{margin-top:0;color:var(--ivory)}
+.ph{border:1px dashed var(--brass);color:var(--brass);padding:.15rem .5rem;font-size:.9rem;display:inline-block}
+ol.steps{counter-reset:s;list-style:none;padding:0}ol.steps li{counter-increment:s;padding:1rem 1rem 1rem 4rem;position:relative;border-left:1px solid var(--line);margin-bottom:.6rem}
+ol.steps li::before{content:counter(s,decimal-leading-zero);position:absolute;left:.8rem;top:.9rem;font-size:1.4rem;color:var(--gold)}
+footer{border-top:1px solid var(--line);color:var(--mist);font-size:.9rem;padding:2rem 0}
+form label{display:block;margin-top:1rem}input,textarea{width:100%;padding:.7rem;background:var(--navy);color:var(--ivory);border:1px solid var(--mist);font:inherit}
