@@ -19,7 +19,7 @@ not_found_handling = "404-page"
 # Only these paths run Worker code. Every other request (all existing pages, robots.txt,
 # /.well-known/tdmrep.json, CSS, images) is served directly as a static asset: free and unlimited.
 run_worker_first = [
-  "/signup", "/signin", "/verify", "/account", "/account/*", "/signout",
+  "/signup", "/signin", "/signin/*", "/forgot-password", "/verify", "/account", "/account/*", "/signout",
   "/skills", "/skills/*", "/download/*", "/webhooks/*", "/api/*"
 ]
 

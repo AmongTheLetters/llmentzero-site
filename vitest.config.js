@@ -14,6 +14,7 @@ export default defineConfig(async () => {
             TURNSTILE_SECRET: "test-secret",
             IP_HASH_KEY: "test-ip-key",
             PAYHIP_API_KEY: "test-payhip-key",
+            PASSWORD_PEPPER: "test-pepper",
             // Override anything a developer's local .dev.vars might set.
             EMAIL_MODE: "",
             TURNSTILE_SITE_KEY: "0x4AAAAAAFY-xUUqJQoVXeUt",

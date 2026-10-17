@@ -11,8 +11,8 @@ export const LEGAL = {
     "path": "/licence"
   },
   "privacy": {
-    "version": "LZ-PRIV-2026-10-16.2",
-    "sha256": "8cfac28c95a7be2b97b0b2023154b92025a738ea4a6d838a9058940e11d6c3f2",
+    "version": "LZ-PRIV-2026-10-16.3",
+    "sha256": "460bdb1da3a8b6df6260c3b6dcfa4194fde0873a00f92a0da736a39db7e45651",
     "path": "/privacy"
   }
 };

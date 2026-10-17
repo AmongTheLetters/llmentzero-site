@@ -94,6 +94,12 @@ export async function ipHash(env, request) {
   return (await hmacHex(env.IP_HASH_KEY, clientIp(request))).slice(0, 32);
 }
 
+/** Keyed hash of an email address, for short-lived rate-limit counters (never the address itself). */
+export async function emailKey(env, email) {
+  if (!env.IP_HASH_KEY) throw new Error("IP_HASH_KEY secret is not set");
+  return (await hmacHex(env.IP_HASH_KEY, `email:${email}`)).slice(0, 32);
+}
+
 export function userAgent(request) {
   return (request.headers.get("User-Agent") || "").slice(0, 400);
 }

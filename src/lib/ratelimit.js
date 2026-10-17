@@ -21,3 +21,13 @@ export const LIMITS = {
   downloadsPerUserDay: 60,
   codeAttempts: 5,
 };
+
+/** Current count for a key in the current window, without incrementing. */
+export async function peek(env, key, windowSec) {
+  const t = now();
+  const start = t - (t % windowSec);
+  const row = await env.DB.prepare("SELECT count, window_start FROM rate_limits WHERE key = ?").bind(key).first();
+  return row && row.window_start >= start ? row.count : 0;
+}
+
+export const PASSWORD_LIMITS = { failuresPerAccount: 5, accountWindow: 900, failuresPerIp: 30, ipWindow: 3600 };

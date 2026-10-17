@@ -40,6 +40,8 @@ The site can run on **Cloudflare Workers with static assets** (Free plan only: n
 | Path | What it does |
 |---|---|
 | `/signup`, `/signin`, `/verify` | Passwordless sign-in: email + Turnstile → 6-digit code by email (Resend) → session |
+| `/signin?method=password`, `/signin/password`, `/forgot-password` | Optional password sign-in (email + password + Turnstile). Same error for wrong password, no password or no account. "Forgot password" is the email-code flow with `next=/account/password` |
+| `/account/password`, `/account/password/remove`, `/account/password/code` | Set / change / remove the optional password. Change and remove need the current password or a sign-in by email code in the last 15 minutes. Every change signs out all sessions and emails a notice |
 | `/account`, `/account/accept`, `/signout` | Account page (licences, downloads, terms record), re-accept changed terms, sign out |
 | `/skills`, `/skills/<slug>` | Skill catalogue and pages, with the "When you need a licence" notice and the friendly reminder |
 | `/download/<slug>` | Signed-in only. Streams the skill file from D1 with the licence line and hidden canary added |
@@ -86,6 +88,7 @@ npm test                                 # vitest in the Workers runtime
    npx wrangler secret put RESEND_API_KEY      # Resend sending-only key
    npx wrangler secret put TURNSTILE_SECRET    # Turnstile → widget → Secret key
    openssl rand -hex 32 | npx wrangler secret put IP_HASH_KEY
+   openssl rand -hex 32 | npx wrangler secret put PASSWORD_PEPPER   # never rotate casually: changing it invalidates every password (users fall back to email codes)
    npx wrangler secret put PAYHIP_API_KEY      # Payhip → Settings → Developer → API key
    ```
 5. **Test on workers.dev:** add the workers.dev hostname to the Turnstile widget's hostnames, and to `TURNSTILE_EXPECTED_HOSTNAME` (comma-separated). Redeploy, then sign up, sign in, download and sign out. Afterwards, remove the workers.dev hostname again.
@@ -105,3 +108,9 @@ npm test                                 # vitest in the Workers runtime
 9. **After it's stable:** turn on HSTS and DNSSEC (see ACCOUNTS_PLAN Setup log).
 
 Free-plan limits: 100,000 Worker requests a day (static pages don't count), D1 5M rows read and 100k written a day, Resend 100 emails a day. Going over blocks things until 00:00 UTC; it never bills.
+
+### Optional passwords
+- Email codes stay the default and always work. Passwords are optional (sign-up form or account page).
+- Hash: PBKDF2-HMAC-SHA-256 (Web Crypto), **30,000 iterations**, 16-byte random salt, input pre-hashed with HMAC(`PASSWORD_PEPPER`) so a database-only leak can't be cracked offline. Stored as `pbkdf2-sha256$<iterations>$<pepper id>$<salt>$<hash>`; hashes with fewer iterations are upgraded at the next sign-in. Why 30k: Workers Free gives 10 ms CPU per request and workerd caps PBKDF2 at 100,000 iterations; measured ~4 ms at 30k, ~12.5 ms at 100k. A password change does two derivations (~8 ms). Raise `ITERATIONS` in `src/lib/password.js` on Workers Paid.
+- Rules (NIST SP 800-63B): 8–128 characters after NFKC normalisation, any characters, no composition rules, blocked if on the common-password list (`src/lib/common-passwords.js`) or equal to the email/site name. Paste and password managers allowed (`autocomplete` username / current-password / new-password); confirm field must match; eye-icon show/hide toggle (`assets/password-toggle.js`, hidden without JS).
+- Lockout: 5 failures per account in 15 minutes or 30 per network (keyed IP hash) per hour pauses password sign-in for the rest of that window; email-code sign-in still works. Counters use keyed hashes and are deleted within two days.

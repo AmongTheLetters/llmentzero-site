@@ -68,6 +68,15 @@ export function codeEmail({ code, purpose }) {
   };
 }
 
+export function passwordChangedEmail({ origin, removed = false }) {
+  const what = removed ? "removed" : "changed";
+  return {
+    subject: `Your LlmentZero password was ${what}`,
+    text: `Hi there,\n\nThe password for your LlmentZero account was just ${what}, and every browser that was signed in has been signed out.\n\nIf this was you, there's nothing else to do.\n\nIf it wasn't you, reset your password now at ${origin}/forgot-password and email llmentzero@gmail.com so we can help.\n\nLlmentZero · Ontario, Canada · llmentzero@gmail.com\n`,
+    html: wrapHtml(`<p>Hi there,</p><p>The password for your LlmentZero account was just ${what}, and every browser that was signed in has been signed out.</p><p>If this was you, there's nothing else to do.</p><p>If it wasn't you, <a href="${esc(origin)}/forgot-password" style="color:#0b6e66">reset your password now</a> and email <a href="mailto:llmentzero@gmail.com" style="color:#0b6e66">llmentzero@gmail.com</a> so we can help.</p>`),
+  };
+}
+
 export function noAccountEmail({ origin }) {
   return {
     subject: "Signing in to LlmentZero",

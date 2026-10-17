@@ -12,7 +12,7 @@ export function buyUrl(env) {
   return env.PAYHIP_URL && /^https:\/\//.test(env.PAYHIP_URL) ? env.PAYHIP_URL : "/tiers";
 }
 
-export function layout({ title, body, description = "", noindex = true, user = null, turnstile = false, reminder = false, canonical = "", headExtra = "" }) {
+export function layout({ title, body, description = "", noindex = true, user = null, turnstile = false, reminder = false, passwords = false, canonical = "", headExtra = "" }) {
   // Same account button as the static pages; the server tells the script whether we're signed in.
   const signedIn = user && typeof user === "object" && user.email;
   const acct = `<div class="acct" data-state="${signedIn ? "in" : user ? "unknown" : "out"}"${signedIn ? ` data-initial="${esc(user.email.slice(0, 1).toUpperCase())}" data-email="${esc(user.email)}"` : ""}><a class="acct-btn" href="/account">${ACCT_ICON}<span class="visually-hidden">Account</span></a></div>`;
@@ -21,7 +21,7 @@ export function layout({ title, body, description = "", noindex = true, user = n
 <meta name="robots" content="${noindex ? "noindex, nofollow, noai, noimageai" : "noai, noimageai"}"><meta name="tdm-reservation" content="1"><meta name="tdm-policy" content="https://llmentzero.com/licence">
 <link rel="icon" href="/favicon.ico" sizes="48x48"><link rel="icon" href="/assets/icons/favicon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png"><link rel="manifest" href="/site.webmanifest"><meta name="theme-color" content="#0B0F1A">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="${FONTS}" rel="stylesheet">
-<link rel="stylesheet" href="/assets/style.css"><link rel="stylesheet" href="/assets/accounts.css"><script src="/assets/nav.js" defer></script><script src="/assets/account-menu.js" defer></script>${reminder ? `<script src="/assets/lz-reminder.js" defer></script>` : ""}${turnstile ? `<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>` : ""}${headExtra}</head><body><a class="skip" href="#main">Skip to content</a>
+<link rel="stylesheet" href="/assets/style.css"><link rel="stylesheet" href="/assets/accounts.css"><script src="/assets/nav.js" defer></script><script src="/assets/account-menu.js" defer></script>${reminder ? `<script src="/assets/lz-reminder.js" defer></script>` : ""}${passwords ? `<script src="/assets/password-toggle.js" defer></script>` : ""}${turnstile ? `<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>` : ""}${headExtra}</head><body><a class="skip" href="#main">Skip to content</a>
 <header><div class="wrap"><a class="brand" href="/"><img src="/assets/logo/llmentzero-horizontal-dark.svg" alt="LlmentZero home" width="173" height="48"></a>
 <nav aria-label="Main" class="nav"><button type="button" class="nav-toggle" aria-expanded="false" aria-controls="nav-menu"><span class="bars" aria-hidden="true"></span><span class="nav-label">Menu</span></button><ul id="nav-menu"><li><a href="/">Home</a></li><li><a href="/how-it-works">How it works</a></li><li><a href="/tiers">Tiers</a></li><li><a href="/demos">Free demos</a></li><li><a href="/about">About</a></li><li><a href="/requests">Requests</a></li><li><a href="/contact">Contact</a></li></ul></nav>${acct}</div></header><main id="main"><section><div class="wrap narrow">${body}</div></section></main>
 <footer><div class="wrap"><p>© 2026 LlmentZero · <a href="mailto:llmentzero@gmail.com">llmentzero@gmail.com</a> · Ontario, Canada</p><p>Free for personal use. Business and commercial use needs a paid licence.</p><nav aria-label="Legal"><ul class="legal-links"><li><a href="/privacy">Privacy</a></li><li><a href="/terms">Terms</a></li><li><a href="/licence">Licence</a></li><li><a href="/accessibility">Accessibility</a></li></ul></nav></div></footer></body></html>`;
@@ -68,3 +68,19 @@ export function licenceNotice(env, headingId = "need-licence") {
 export function reminderMount(env) {
   return `<div id="lz-reminder" class="lz-reminder" role="status" aria-live="polite" data-buy="${esc(buyUrl(env))}" data-payhip="${env.PAYHIP_URL ? "1" : "0"}"></div>`;
 }
+
+const EYE = `<svg class="pw-eye" aria-hidden="true" focusable="false" viewBox="0 0 24 24" width="22" height="22"><path class="pw-eye-open" d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle class="pw-eye-open" cx="12" cy="12" r="3"/><path class="pw-eye-slash" d="M3 3l18 18"/></svg>`;
+
+/**
+ * Password input with an eye-icon show/hide toggle (/assets/password-toggle.js).
+ * Paste and password managers are always allowed (WCAG 2.2 SC 3.3.8). No maxlength, so long pasted
+ * passphrases are never cut silently; length is checked on the server with a clear message.
+ */
+export function passwordField(errors, { id, label, autocomplete, hint = "" }) {
+  const err = errors?.[id];
+  const hintId = hint ? `${id}-hint` : "";
+  const ids = [hintId, err ? `${id}-error` : ""].filter(Boolean).join(" ");
+  return `<div class="field${err ? " has-error" : ""}"><label for="${id}">${esc(label)}</label>${hint ? `<p class="hint" id="${hintId}">${hint}</p>` : ""}${fieldError(errors, id)}<div class="pw-wrap"><input id="${id}" name="${id}" type="password" autocomplete="${autocomplete}" spellcheck="false" autocapitalize="none"${ids ? ` aria-describedby="${ids}"` : ""}${err ? ' aria-invalid="true"' : ""}><button type="button" class="pw-toggle" aria-controls="${id}" aria-pressed="false" hidden>${EYE}<span class="pw-toggle-label visually-hidden">Show password</span></button></div></div>`;
+}
+
+export const NEW_PASSWORD_HINT = "At least 8 characters. Long passphrases are welcome (up to 128 characters), and you can paste or use a password manager. No special symbols needed.";

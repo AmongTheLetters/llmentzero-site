@@ -5,5 +5,6 @@ TURNSTILE_SECRET=1x0000000000000000000000000000000AA
 TURNSTILE_EXPECTED_HOSTNAME=
 IP_HASH_KEY=dev-only-not-secret
 PAYHIP_API_KEY=dev-payhip-key
+PASSWORD_PEPPER=dev-only-pepper
 # Prints codes to the terminal instead of emailing them. Refused on llmentzero.com.
 EMAIL_MODE=log

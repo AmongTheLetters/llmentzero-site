@@ -41,3 +41,19 @@ th{color:var(--brass);font-weight:600}
 .lz-reminder .lz-dismiss:hover{background:rgba(212,175,55,.15)}
 @media (prefers-reduced-motion:no-preference){.lz-reminder.lz-in{animation:lzfade .15s ease-out}}
 @keyframes lzfade{from{opacity:0}to{opacity:1}}
+/* Password fields with an eye-icon show/hide toggle */
+.pw-wrap{display:flex;align-items:stretch;gap:0}
+.pw-wrap input{flex:1 1 auto;min-width:0}
+.pw-toggle{flex:0 0 auto;width:48px;min-height:48px;display:inline-flex;align-items:center;justify-content:center;background:var(--navy);color:var(--brass);border:1px solid var(--mist);border-left:0;cursor:pointer;padding:0}
+.pw-toggle[hidden]{display:none}
+.pw-toggle:hover{background:rgba(212,175,55,.15)}
+.pw-toggle:focus-visible{outline:3px solid var(--brass);outline-offset:2px}
+.pw-eye{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.pw-eye-slash{display:none}
+.pw-toggle[aria-pressed="true"] .pw-eye-slash{display:inline}
+.has-error .pw-wrap input{border:2px solid #FF9C94}
+input[type=password]{min-height:48px;font-size:1.1rem;border-radius:0}
+.method-switch{margin:-.5rem 0 1.5rem}
+.notice-ok{border-left:4px solid var(--teal);padding:.6rem 1rem;background:var(--navy);margin:0 0 1.5rem}
+.linklike{background:none;border:0;padding:0;color:var(--teal);text-decoration:underline;font:inherit;cursor:pointer}.linklike:hover{color:var(--brass)}
+main dd,main td{overflow-wrap:anywhere}
