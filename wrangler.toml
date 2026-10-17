@@ -33,7 +33,7 @@ migrations_dir = "migrations"
 EMAIL_FROM = "LlmentZero <no-reply@mail.llmentzero.com>"
 EMAIL_REPLY_TO = "llmentzero@gmail.com"
 TURNSTILE_SITE_KEY = "0x4AAAAAAFY-xUUqJQoVXeUt"
-TURNSTILE_EXPECTED_HOSTNAME = "llmentzero.com"   # comma-separated; add the workers.dev hostname while testing there
+TURNSTILE_EXPECTED_HOSTNAME = "llmentzero.com,llmentzero.llmentzero.workers.dev"   # comma-separated; drop the workers.dev host after the domain move
 # Payhip product page for the Business Licence. Empty = buy links point to /tiers until it exists.
 PAYHIP_URL = ""
 # JSON map of Payhip product_id -> licence type, e.g. {"2804256":"business","2804257":"deployment"}.
