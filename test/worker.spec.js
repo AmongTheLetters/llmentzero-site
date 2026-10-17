@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { call, codeFromEmail, cookieHeader, cookiesFrom, form, mockOutbound, seedSkill, signUp } from "./helpers.js";
+import { call, codeFromEmail, cookieHeader, cookiesFrom, form, mockOutbound, seedSkill, signUp, TEST_PASSWORD } from "./helpers.js";
 import { stampSkillFile } from "../src/skills.js";
 import { LEGAL } from "../src/generated/legal.js";
 
@@ -68,7 +68,7 @@ describe("sign-up page (clickwrap)", () => {
 
   it("rejects a failed Turnstile check", async () => {
     mockOutbound({ turnstile: false });
-    const res = await form("/signup", { email: "b@example.com", terms: "yes", "cf-turnstile-response": "bad" });
+    const res = await form("/signup", { email: "b@example.com", terms: "yes", new_password: TEST_PASSWORD, confirm_password: TEST_PASSWORD, "cf-turnstile-response": "bad" });
     expect(res.status).toBe(400);
     expect(await res.text()).toContain("automatic person check");
   });
@@ -83,7 +83,7 @@ describe("email-code sign-in", () => {
   it("signs up, stores only a hash of the code, sets a __Host- session cookie and logs acceptance", async () => {
     const { resendCalls } = mockOutbound();
     const email = "newuser@example.com";
-    const r1 = await form("/signup", { email: "NewUser@Example.com ", terms: "yes", marketing: "yes", "cf-turnstile-response": "tok:signup" });
+    const r1 = await form("/signup", { email: "NewUser@Example.com ", terms: "yes", new_password: TEST_PASSWORD, confirm_password: TEST_PASSWORD, marketing: "yes", "cf-turnstile-response": "tok:signup" });
     expect(r1.status).toBe(303);
     expect(r1.headers.get("Location")).toBe("/verify");
     expect(resendCalls).toHaveLength(1);
@@ -135,7 +135,7 @@ describe("email-code sign-in", () => {
 
   it("locks a code after 5 wrong tries", async () => {
     const { resendCalls } = mockOutbound();
-    const r1 = await form("/signup", { email: "lock@example.com", terms: "yes", "cf-turnstile-response": "tok:signup" });
+    const r1 = await form("/signup", { email: "lock@example.com", terms: "yes", new_password: TEST_PASSWORD, confirm_password: TEST_PASSWORD, "cf-turnstile-response": "tok:signup" });
     const code = codeFromEmail(resendCalls[0]);
     const wrong = code === "000000" ? "111111" : "000000";
     const ck = { headers: { Cookie: cookieHeader(cookiesFrom(r1)) } };
@@ -166,14 +166,14 @@ describe("email-code sign-in", () => {
   it("rate-limits code requests per email (5 an hour)", async () => {
     mockOutbound();
     const email = "limit@example.com";
-    for (let i = 0; i < 5; i++) expect((await form("/signup", { email, terms: "yes", "cf-turnstile-response": "tok:signup" })).status).toBe(303);
-    const res = await form("/signup", { email, terms: "yes", "cf-turnstile-response": "tok:signup" });
+    for (let i = 0; i < 5; i++) expect((await form("/signup", { email, terms: "yes", new_password: TEST_PASSWORD, confirm_password: TEST_PASSWORD, "cf-turnstile-response": "tok:signup" })).status).toBe(303);
+    const res = await form("/signup", { email, terms: "yes", new_password: TEST_PASSWORD, confirm_password: TEST_PASSWORD, "cf-turnstile-response": "tok:signup" });
     expect(res.status).toBe(429);
   });
 
   it("retries Resend on 5xx/429 with the same idempotency key", async () => {
     const { resendCalls } = mockOutbound({ resendResponses: [500, 429, 200] });
-    const res = await form("/signup", { email: "retry@example.com", terms: "yes", "cf-turnstile-response": "tok:signup" });
+    const res = await form("/signup", { email: "retry@example.com", terms: "yes", new_password: TEST_PASSWORD, confirm_password: TEST_PASSWORD, "cf-turnstile-response": "tok:signup" });
     expect(res.status).toBe(303);
     expect(resendCalls).toHaveLength(3);
     expect(new Set(resendCalls.map((c) => c.headers.get("Idempotency-Key"))).size).toBe(1);
@@ -181,7 +181,7 @@ describe("email-code sign-in", () => {
 
   it("does not retry Resend on a 4xx, and shows a friendly message", async () => {
     const { resendCalls } = mockOutbound({ resendResponses: [422] });
-    const res = await form("/signup", { email: "noretry@example.com", terms: "yes", "cf-turnstile-response": "tok:signup" });
+    const res = await form("/signup", { email: "noretry@example.com", terms: "yes", new_password: TEST_PASSWORD, confirm_password: TEST_PASSWORD, "cf-turnstile-response": "tok:signup" });
     expect(resendCalls).toHaveLength(1);
     expect(res.status).toBe(503);
     expect(await res.text()).toContain("couldn&#39;t send the email");
@@ -194,7 +194,7 @@ describe("email-code sign-in", () => {
     const res = await call("/account", { headers: { Cookie: cookie } });
     expect(res.status).toBe(303);
     expect(res.headers.get("Location")).toBe("/account/accept?next=/account");
-    const ok = await form("/account/accept", { terms: "yes", next: "/account" }, { headers: { Cookie: cookie } });
+    const ok = await form("/account/accept", { terms: "yes", new_password: TEST_PASSWORD, confirm_password: TEST_PASSWORD, next: "/account" }, { headers: { Cookie: cookie } });
     expect(ok.status).toBe(303);
     const n = await env.DB.prepare("SELECT COUNT(*) AS n FROM terms_acceptances WHERE email = ? AND method = 're-accept checkbox'").bind(email).first("n");
     expect(n).toBe(1);
@@ -346,11 +346,11 @@ describe("account button and /api/me", () => {
     expect(await res.json()).toEqual({ signedIn: true, initial: email[0].toUpperCase(), email });
   });
   it("records the revised privacy version on acceptance", async () => {
-    expect(LEGAL.privacy.version).toBe("LZ-PRIV-2026-10-16.3");
+    expect(LEGAL.privacy.version).toBe("LZ-PRIV-2026-10-16.4");
     expect(LEGAL.terms.version).toBe("LZ-TERMS-2026-10-16.2");
     expect(LEGAL.licence.version).toBe("LZ-LIC-2026-10-16.2");
     const { email } = await signUp();
-    expect(await env.DB.prepare("SELECT privacy_version FROM terms_acceptances WHERE email = ?").bind(email).first("privacy_version")).toBe("LZ-PRIV-2026-10-16.3");
+    expect(await env.DB.prepare("SELECT privacy_version FROM terms_acceptances WHERE email = ?").bind(email).first("privacy_version")).toBe("LZ-PRIV-2026-10-16.4");
   });
 });
 

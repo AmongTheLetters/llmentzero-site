@@ -2,6 +2,7 @@ import { env, exports } from "cloudflare:workers";
 import { vi } from "vitest";
 
 export const ORIGIN = "https://llmentzero.com";
+export const TEST_PASSWORD = "correct horse battery staple";
 
 export function call(path, init = {}) {
   const headers = new Headers(init.headers || {});
@@ -54,7 +55,7 @@ export const codeFromEmail = (call) => /\b(\d{6})\b/.exec(call.body.text)[1];
 /** Full sign-up: returns { session cookie header, email }. */
 export async function signUp(email = `person${Math.random().toString(36).slice(2, 8)}@example.com`, extra = {}) {
   const { resendCalls, spy } = mockOutbound();
-  const r1 = await form("/signup", { email, terms: "yes", "cf-turnstile-response": "tok:signup", next: "/account", ...extra });
+  const r1 = await form("/signup", { email, terms: "yes", new_password: TEST_PASSWORD, confirm_password: TEST_PASSWORD, "cf-turnstile-response": "tok:signup", next: "/account", ...extra });
   if (r1.status !== 303) throw new Error("signup failed " + r1.status + (await r1.text()));
   const pending = cookiesFrom(r1);
   const code = codeFromEmail(resendCalls.at(-1));

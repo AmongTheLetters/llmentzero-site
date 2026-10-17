@@ -34,11 +34,9 @@ function signupPage(env, { errors = {}, email = "", terms = false, marketing = f
 
 <form method="post" action="/signup" novalidate class="stack">
 <input type="hidden" name="next" value="${esc(next)}">
-${emailField(errors, email)}
-<fieldset class="field"><legend>Use a password too? (optional)</legend><p class="hint">You don't need a password. We'll email you a 6-digit code each time you sign in. If you'd rather use a password too, choose one here, or add one later from your account page.</p>
-${passwordField(errors, { id: "new_password", label: "Password", autocomplete: "new-password", hint: NEW_PASSWORD_HINT })}
+${emailField(errors, email, { hint: "We'll email you a 6-digit code to confirm it's yours.", autocomplete: "username" })}
+${passwordField(errors, { id: "new_password", label: "Create a password", autocomplete: "new-password", hint: NEW_PASSWORD_HINT })}
 ${passwordField(errors, { id: "confirm_password", label: "Confirm password", autocomplete: "new-password" })}
-</fieldset>
 ${termsCheckbox(errors, terms)}
 <fieldset class="field"><legend>Email updates (optional)</legend><div class="check"><input id="marketing" name="marketing" type="checkbox" value="yes"${marketing ? " checked" : ""} aria-describedby="marketing-hint"><label for="marketing">Yes, email me about new skills and offers from LlmentZero.</label></div><p class="hint" id="marketing-hint">Optional. You can unsubscribe at any time. We never share your email.</p></fieldset>
 ${turnstileWidget(env, "signup", errors)}
@@ -68,18 +66,16 @@ export async function postSignup(request, env) {
   if (!terms) errors.terms = "Tick the box to agree to the Terms of Service and Skill Licence";
   const pw = f.get("new_password") || "";
   const confirm = f.get("confirm_password") || "";
-  if (pw || confirm) {
-    const problem = checkNewPassword(pw, email);
-    if (problem) errors.new_password = problem;
-    else if (!confirm) errors.confirm_password = "Enter the password again to confirm it, or leave both password fields empty";
-    else if (normalise(confirm) !== normalise(pw)) errors.confirm_password = "The passwords don't match. Enter the same password in both fields";
-  }
+  const problem = checkNewPassword(pw, email);
+  if (problem) errors.new_password = problem === "Enter a password" ? "Create a password" : problem;
+  if (!confirm) errors.confirm_password = "Enter the password again to confirm it";
+  else if (!problem && normalise(confirm) !== normalise(pw)) errors.confirm_password = "The passwords don't match. Enter the same password in both fields";
   if (!errors.email) {
     const ts = await verifyTurnstile(env, request, f.get("cf-turnstile-response"), "signup");
     if (!ts.ok) errors.turnstile = "The automatic person check didn't finish. Please wait for it to complete, then send the form again";
   }
   if (Object.keys(errors).length) return html(signupPage(env, { errors, email, terms, marketing, next }), { status: 400 });
-  const pendingPasswordHash = pw ? await hashPassword(env, pw) : null;
+  const pendingPasswordHash = await hashPassword(env, pw);
   return startCode(request, env, { email, purpose: "signup", termsTickedAt: now(), marketing, next, pendingPasswordHash, rerender: (errs) => signupPage(env, { errors: errs, email, terms, marketing, next }) });
 }
 
@@ -101,7 +97,7 @@ function signinPage(env, { errors = {}, email = "", next = "/account", method = 
       turnstile: true,
       passwords: true,
       body: `${errorSummary(errors)}<p class="eyebrow">Welcome back</p><h1>Sign in</h1>
-<p class="method-switch"><a href="/signin${q("code")}">Email me a code instead</a></p>
+<p class="method-switch"><a class="btn ghost" href="/signin${q("code")}">Email me a code instead</a></p>
 <form method="post" action="/signin/password" novalidate class="stack">
 <input type="hidden" name="next" value="${esc(next)}">
 <div class="field${errors?.email ? " has-error" : ""}"><label for="email">Email address</label>${fieldError(errors, "email")}<input id="email" name="email" type="email" autocomplete="username" spellcheck="false" value="${esc(email)}"${errors?.email ? ' aria-invalid="true" aria-describedby="email-error"' : ""}></div>
@@ -117,7 +113,7 @@ ${turnstileWidget(env, "signin", errors)}
     title: hasErr ? `Error: ${forgot ? "Reset your password" : "Sign in"}` : forgot ? "Reset your password" : "Sign in",
     turnstile: true,
     body: `${errorSummary(errors)}<p class="eyebrow">${forgot ? "Forgot your password?" : "Welcome back"}</p><h1>${forgot ? "Reset your password" : "Sign in"}</h1>
-${forgot ? `<p>We'll email you a 6-digit code. Once you've entered it, you can choose a new password.</p>` : `<p class="method-switch"><a href="/signin${q("password")}">Use password instead</a></p>`}
+${forgot ? `<p>We'll email you a 6-digit code. Once you've entered it, you can choose a new password.</p>` : `<p class="method-switch"><a class="btn ghost" href="/signin${q("password")}">Use password instead</a></p>`}
 <form method="post" action="/signin" novalidate class="stack">
 <input type="hidden" name="next" value="${esc(forgot ? "/account/password" : next)}">
 ${emailField(errors, email)}
@@ -220,18 +216,19 @@ export async function postSigninPassword(request, env, ctx) {
 // ---------- Set / change password ----------
 const FRESH_CODE_WINDOW = 15 * 60;
 
-function passwordPage(user, { errors = {}, fresh = false, codeSent = false } = {}) {
+function passwordPage(user, { errors = {}, fresh = false, codeSent = false, next = "/account" } = {}) {
   const changing = user.hasPassword;
   const needCurrent = changing && !fresh;
-  const title = changing ? "Change your password" : "Set a password";
+  const title = changing ? "Change your password" : "Create your password";
   return layout({
     title: errors && Object.keys(errors).length ? `Error: ${title}` : title,
     user,
     passwords: true,
     body: `${errorSummary(errors)}<p class="eyebrow">Account</p><h1>${title}</h1>
-${changing ? "" : `<p>Optional. With a password you can sign in without waiting for an email. You can still use an email code whenever you like.</p>`}
+${changing ? "" : `<p>Every LlmentZero account now needs a password. Choose one to continue. You can still sign in with an email code whenever you like.</p>`}
 ${codeSent ? `<p class="notice-ok" role="status">We've emailed you a 6-digit code. Enter it on the next page, then come back here to choose your new password.</p>` : ""}
 <form method="post" action="/account/password" novalidate class="stack">
+<input type="hidden" name="next" value="${esc(next)}">
 <input type="email" name="username" value="${esc(user.email)}" autocomplete="username" hidden readonly tabindex="-1" aria-hidden="true">
 ${needCurrent ? passwordField(errors, { id: "current_password", label: "Current password", autocomplete: "current-password" }) : ""}
 ${passwordField(errors, { id: "new_password", label: changing ? "New password" : "Password", autocomplete: "new-password", hint: NEW_PASSWORD_HINT })}
@@ -239,7 +236,7 @@ ${passwordField(errors, { id: "confirm_password", label: changing ? "Confirm new
 <button type="submit" class="btn">${changing ? "Change password" : "Save password"}</button>
 </form>
 ${needCurrent ? codeInsteadForm("/account/password") : ""}
-<p><a href="/account">Back to your account</a></p>`,
+${changing ? `<p><a href="/account">Back to your account</a></p>` : `<form method="post" action="/signout"><p>Not now? <button type="submit" class="linklike">Sign out</button></p></form>`}`,
   });
 }
 
@@ -250,8 +247,9 @@ function isFresh(user) {
 export async function getPassword(request, env) {
   const { user, cookies } = await getSession(env, request);
   if (!user) return redirect("/signin?next=/account/password");
-  const codeSent = new URL(request.url).searchParams.get("code") === "sent";
-  return html(passwordPage(user, { fresh: isFresh(user), codeSent }), { cookies });
+  const url = new URL(request.url);
+  const codeSent = url.searchParams.get("code") === "sent";
+  return html(passwordPage(user, { fresh: isFresh(user), codeSent, next: nextParam(url) }), { cookies });
 }
 
 export async function postPassword(request, env, ctx) {
@@ -260,6 +258,7 @@ export async function postPassword(request, env, ctx) {
   if (!user) return redirect("/signin?next=/account/password");
   const f = await readForm(request);
   const fresh = isFresh(user);
+  const next = safeNext(f.get("next"));
   const needCurrent = user.hasPassword && !fresh;
   const current = f.get("current_password") || "";
   const pw = f.get("new_password") || "";
@@ -272,16 +271,16 @@ export async function postPassword(request, env, ctx) {
   if (problem) errors.new_password = problem;
   if (!confirm) errors.confirm_password = "Enter the new password again to confirm it";
   else if (!problem && normalise(confirm) !== normalise(pw)) errors.confirm_password = "The passwords don't match. Enter the same password in both fields";
-  if (Object.keys(errors).length) return html(passwordPage(user, { errors, fresh }), { status: 400 });
+  if (Object.keys(errors).length) return html(passwordPage(user, { errors, fresh, next }), { status: 400 });
 
   if (needCurrent) {
-    if (await passwordLocked(env, emailHash, ip)) return html(passwordPage(user, { errors: { current_password: LOCKED }, fresh }), { status: 429 });
+    if (await passwordLocked(env, emailHash, ip)) return html(passwordPage(user, { errors: { current_password: LOCKED }, fresh, next }), { status: 429 });
     const row = await env.DB.prepare("SELECT password_hash FROM users WHERE id = ?").bind(user.id).first();
     const ok = (await verifyPassword(env, current, row?.password_hash)).ok;
     if (!ok) {
       await passwordFailure(env, emailHash, ip);
       await audit(env, "password.change_failed", { userId: user.id, ip });
-      return html(passwordPage(user, { errors: { current_password: "That isn't your current password. Try again, or use an email code instead" }, fresh }), { status: 400 });
+      return html(passwordPage(user, { errors: { current_password: "That isn't your current password. Try again, or use an email code instead" }, fresh, next }), { status: 400 });
     }
   }
   const t = now();
@@ -295,68 +294,12 @@ export async function postPassword(request, env, ctx) {
     const send = sendEmail(env, { to: user.email, ...notice, idempotencyKey: `pwchanged-${user.id}-${t}` }).catch((err) => audit(env, "email.failed", { userId: user.id, detail: `password notice: ${err.message}` }));
     if (ctx && ctx.waitUntil) ctx.waitUntil(send); else await send;
   }
-  return redirect(user.hasPassword ? "/account?password=changed" : "/account?password=set", { cookies: [sessionCookie] });
+  const after = user.hasPassword ? "/account?password=changed" : next === "/account" ? "/account?password=set" : next;
+  return redirect(after, { cookies: [sessionCookie] });
 }
 
 function codeInsteadForm(next) {
   return `<form method="post" action="/account/password/code"><input type="hidden" name="next" value="${esc(next)}"><p>Forgot your current password? <button type="submit" class="linklike">Email me a code instead</button></p></form>`;
-}
-
-// ---------- Remove password ----------
-function removePage(user, { errors = {}, fresh = false } = {}) {
-  const needCurrent = !fresh;
-  return layout({
-    title: errors && Object.keys(errors).length ? "Error: Remove your password" : "Remove your password",
-    user,
-    passwords: true,
-    body: `${errorSummary(errors)}<p class="eyebrow">Account</p><h1>Remove your password</h1>
-<p>After this, you'll sign in with a 6-digit code we email you. Every browser that's signed in will be signed out, apart from this one.</p>
-<form method="post" action="/account/password/remove" novalidate class="stack">
-<input type="email" name="username" value="${esc(user.email)}" autocomplete="username" hidden readonly tabindex="-1" aria-hidden="true">
-${needCurrent ? passwordField(errors, { id: "current_password", label: "Current password", autocomplete: "current-password", hint: "To keep your account safe, confirm it's you." }) : ""}
-<button type="submit" class="btn">Remove password</button>
-</form>
-${needCurrent ? codeInsteadForm("/account/password/remove") : ""}
-<p><a href="/account">Keep my password and go back</a></p>`,
-  });
-}
-
-export async function getRemovePassword(request, env) {
-  const { user, cookies } = await getSession(env, request);
-  if (!user) return redirect("/signin?next=/account/password/remove");
-  if (!user.hasPassword) return redirect("/account");
-  return html(removePage(user, { fresh: isFresh(user) }), { cookies });
-}
-
-export async function postRemovePassword(request, env, ctx) {
-  if (!sameOrigin(request)) return forbidden();
-  const { user } = await getSession(env, request);
-  if (!user) return redirect("/signin?next=/account/password/remove");
-  if (!user.hasPassword) return redirect("/account");
-  const f = await readForm(request);
-  const fresh = isFresh(user);
-  const ip = await ipHash(env, request);
-  if (!fresh) {
-    const current = f.get("current_password") || "";
-    if (!current) return html(removePage(user, { errors: { current_password: "Enter your current password" } }), { status: 400 });
-    const emailHash = await emailKey(env, user.email);
-    if (await passwordLocked(env, emailHash, ip)) return html(removePage(user, { errors: { current_password: LOCKED } }), { status: 429 });
-    const row = await env.DB.prepare("SELECT password_hash FROM users WHERE id = ?").bind(user.id).first();
-    if (!(await verifyPassword(env, current, row?.password_hash)).ok) {
-      await passwordFailure(env, emailHash, ip);
-      await audit(env, "password.remove_failed", { userId: user.id, ip });
-      return html(removePage(user, { errors: { current_password: "That isn't your current password. Try again, or use an email code instead" } }), { status: 400 });
-    }
-  }
-  const t = now();
-  await env.DB.prepare("UPDATE users SET password_hash = NULL, password_changed_at = ? WHERE id = ?").bind(t, user.id).run();
-  await destroyAllSessions(env, user.id);
-  const sessionCookie = await createSession(env, request, user.id, { method: "code-only" });
-  await audit(env, "password.removed", { userId: user.id, ip });
-  const notice = passwordChangedEmail({ origin: new URL(request.url).origin, removed: true });
-  const send = sendEmail(env, { to: user.email, ...notice, idempotencyKey: `pwremoved-${user.id}-${t}` }).catch((err) => audit(env, "email.failed", { userId: user.id, detail: `password notice: ${err.message}` }));
-  if (ctx && ctx.waitUntil) ctx.waitUntil(send); else await send;
-  return redirect("/account?password=removed", { cookies: [sessionCookie] });
 }
 
 /** Signed-in user forgot their current password: email them a code so they can change it. */
@@ -368,7 +311,7 @@ export async function postPasswordCode(request, env) {
   return startCode(request, env, {
     email: user.email,
     purpose: "signin",
-    next: f.get("next") === "/account/password/remove" ? "/account/password/remove" : "/account/password",
+    next: "/account/password",
     rerender: (errs) => passwordPage(user, { errors: { new_password: errs.email || Object.values(errs)[0] } }),
   });
 }
@@ -472,18 +415,26 @@ export async function postVerify(request, env) {
   const used = await env.DB.prepare("UPDATE login_codes SET used_at = ?, pending_password_hash = NULL WHERE id = ? AND used_at IS NULL").bind(t, row.id).run();
   if (!used.meta?.changes) return html(verifyPage({ errors: expiredMsg, expired: true }), { status: 400 });
 
-  let user = await env.DB.prepare("SELECT id FROM users WHERE email = ? AND closed_at IS NULL").bind(row.email).first();
+  let user = await env.DB.prepare("SELECT id, password_hash FROM users WHERE email = ? AND closed_at IS NULL").bind(row.email).first();
   if (row.purpose === "signup") {
     if (!user) {
       const id = randomId("u_");
-      // The optional sign-up password is only saved once the emailed code proves the address is theirs.
+      // The sign-up password is only saved once the emailed code proves the address is theirs.
       await env.DB.prepare("INSERT INTO users (id, email, marketing_consent, marketing_consent_at, created_at, password_hash, password_changed_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
         .bind(id, row.email, row.marketing_opt_in, row.marketing_opt_in ? row.terms_ticked_at : null, t, row.pending_password_hash || null, row.pending_password_hash ? t : null).run();
       if (row.pending_password_hash) await audit(env, "password.set", { userId: id, ip });
-      user = { id };
+      user = { id, password_hash: row.pending_password_hash };
       await audit(env, "user.created", { userId: id, ip });
-    } else if (row.marketing_opt_in) {
-      await env.DB.prepare("UPDATE users SET marketing_consent = 1, marketing_consent_at = ? WHERE id = ?").bind(row.terms_ticked_at, user.id).run();
+    } else {
+      // Existing account signing up again: only fill in a missing password (never replace one).
+      if (!user.password_hash && row.pending_password_hash) {
+        await env.DB.prepare("UPDATE users SET password_hash = ?, password_changed_at = ? WHERE id = ? AND password_hash IS NULL").bind(row.pending_password_hash, t, user.id).run();
+        user.password_hash = row.pending_password_hash;
+        await audit(env, "password.set", { userId: user.id, ip });
+      }
+      if (row.marketing_opt_in) {
+        await env.DB.prepare("UPDATE users SET marketing_consent = 1, marketing_consent_at = ? WHERE id = ?").bind(row.terms_ticked_at, user.id).run();
+      }
     }
     await recordAcceptance(env, { userId: user.id, email: row.email, method: "signup checkbox", acceptedAt: row.terms_ticked_at || t, ipHash: row.ip_hash, ua: row.user_agent });
   }
@@ -493,7 +444,9 @@ export async function postVerify(request, env) {
   const sessionCookie = await createSession(env, request, user.id);
   await audit(env, "signin.success", { userId: user.id, ip });
   const next = safeNext(row.next_path);
-  const dest = (await acceptedCurrentTerms(env, user.id)) ? next : `/account/accept?next=${encodeURIComponent(next)}`;
+  let dest = (await acceptedCurrentTerms(env, user.id)) ? next : `/account/accept?next=${encodeURIComponent(next)}`;
+  // Passwords are required. Accounts without one (created before passwords) must set one first.
+  if (!user.password_hash && next !== "/account/password") dest = `/account/password?next=${encodeURIComponent(dest)}`;
   return redirect(dest, { cookies: [sessionCookie, cookie(PENDING_COOKIE, "", { maxAge: 0 })] });
 }
 
@@ -519,6 +472,7 @@ export async function getAccept(request, env) {
   const { user, cookies } = await getSession(env, request);
   const url = new URL(request.url);
   if (!user) return redirect(`/signin?next=${encodeURIComponent(url.pathname + url.search)}`);
+  if (!user.hasPassword) return redirect(`/account/password?next=${encodeURIComponent(url.pathname + url.search)}`);
   if (await acceptedCurrentTerms(env, user.id)) return redirect(nextParam(url));
   return html(acceptPage({ next: nextParam(url), user }), { cookies });
 }
@@ -527,6 +481,7 @@ export async function postAccept(request, env) {
   if (!sameOrigin(request)) return forbidden();
   const { user } = await getSession(env, request);
   if (!user) return redirect("/signin");
+  if (!user.hasPassword) return redirect("/account/password");
   const f = await readForm(request);
   const next = safeNext(f.get("next"));
   if (f.get("terms") !== "yes") return html(acceptPage({ errors: { terms: "Tick the box to agree to the Terms of Service and Skill Licence" }, next, user }), { status: 400 });
@@ -540,9 +495,10 @@ const fmtDate = (s) => new Date(s * 1000).toLocaleDateString("en-CA", { year: "n
 export async function getAccount(request, env) {
   const { user, cookies } = await getSession(env, request);
   if (!user) return redirect("/signin?next=/account");
+  if (!user.hasPassword) return redirect("/account/password");
   if (!(await acceptedCurrentTerms(env, user.id))) return redirect("/account/accept?next=/account");
   const pwFlag = new URL(request.url).searchParams.get("password");
-  const pwNotice = pwFlag === "changed" ? "Your password has been changed. Other browsers have been signed out." : pwFlag === "set" ? "Your password is saved. You can sign in with it or with an email code." : pwFlag === "removed" ? "Your password has been removed. You'll sign in with an email code. Other browsers have been signed out." : "";
+  const pwNotice = pwFlag === "changed" ? "Your password has been changed. Other browsers have been signed out." : pwFlag === "set" ? "Your password is saved. You can sign in with it or with an email code." : "";
   const [lic, acc, dls] = await Promise.all([
     env.DB.prepare("SELECT product_name, licence_type, devices, status, order_id, purchased_at FROM licences WHERE email = ? ORDER BY purchased_at DESC").bind(user.email).all(),
     env.DB.prepare("SELECT terms_version, licence_version, accepted_at FROM terms_acceptances WHERE user_id = ? ORDER BY accepted_at DESC LIMIT 1").bind(user.id).first(),
@@ -564,7 +520,7 @@ export async function getAccount(request, env) {
       user,
       body: `${pwNotice ? `<p class="notice-ok" role="status">${esc(pwNotice)}</p>` : ""}<p class="eyebrow">Account</p><h1>Your account</h1>
 <dl class="facts"><div><dt>Email</dt><dd>${esc(user.email)}</dd></div><div><dt>Member since</dt><dd>${fmtDate(user.createdAt)}</dd></div><div><dt>Email updates</dt><dd>${user.marketingConsent ? "Yes" : "No"}</dd></div>${acc ? `<div><dt>Terms agreed</dt><dd>${esc(acc.terms_version)} and ${esc(acc.licence_version)}, on ${fmtDate(acc.accepted_at)}</dd></div>` : ""}</dl>
-<h2 class="h3" id="password">Password</h2>${user.hasPassword ? `<p>You can sign in with your password or an email code.${user.passwordChangedAt ? ` Password last changed on ${fmtDate(user.passwordChangedAt)}.` : ""}</p><ul class="action-list"><li><a href="/account/password">Change password</a></li><li><a href="/account/password/remove">Remove password</a></li></ul>` : `<p>You sign in with a 6-digit email code. A password is optional.</p><p><a href="/account/password">Set a password</a></p>`}
+<h2 class="h3" id="password">Password</h2><p>You can sign in with your password or an email code.${user.passwordChangedAt ? ` Password last changed on ${fmtDate(user.passwordChangedAt)}.` : ""}</p><p><a href="/account/password">Change password</a></p>
 <h2 class="h3" id="licences">Licences</h2>${licRows}
 <h2 class="h3" id="downloads">Recent downloads</h2>${dlRows}
 <h2 class="h3">Your data</h2><p>To get a copy of your data, change your email, stop email updates or close your account, email <a href="mailto:llmentzero@gmail.com">llmentzero@gmail.com</a>. See the <a href="/privacy">Privacy Policy</a>.</p>

@@ -94,6 +94,7 @@ export async function getDownload(request, env, slug) {
   if (!skill) return notFound(env, request, true);
   const { user } = await getSession(env, request);
   if (!user) return redirect(`/signin?next=${encodeURIComponent(`/skills/${slug}`)}`);
+  if (!user.hasPassword) return redirect(`/account/password?next=${encodeURIComponent(`/skills/${slug}`)}`);
   if (!(await acceptedCurrentTerms(env, user.id))) return redirect(`/account/accept?next=${encodeURIComponent(`/skills/${slug}`)}`);
   if (!(await hit(env, `dl:user:${user.id}`, LIMITS.downloadsPerUserDay, 86400))) {
     return text("You've reached today's download limit (60 files). It resets at 8 PM Toronto time. If you need more, email llmentzero@gmail.com.", 429);

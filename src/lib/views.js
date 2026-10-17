@@ -45,8 +45,8 @@ function describedBy(errors, field, hintId) {
   return ids ? ` aria-describedby="${ids}"` : "";
 }
 
-export function emailField(errors, value) {
-  return `<div class="field${errors?.email ? " has-error" : ""}"><label for="email">Email address</label><p class="hint" id="email-hint">We'll email you a 6-digit code. No password needed.</p>${fieldError(errors, "email")}<input id="email" name="email" type="email" autocomplete="email" spellcheck="false" value="${esc(value)}"${describedBy(errors, "email", "email-hint")}${errors?.email ? ' aria-invalid="true"' : ""}></div>`;
+export function emailField(errors, value, { hint = "We'll email you a 6-digit code to sign in.", autocomplete = "email" } = {}) {
+  return `<div class="field${errors?.email ? " has-error" : ""}"><label for="email">Email address</label><p class="hint" id="email-hint">${esc(hint)}</p>${fieldError(errors, "email")}<input id="email" name="email" type="email" autocomplete="${autocomplete}" spellcheck="false" value="${esc(value)}"${describedBy(errors, "email", "email-hint")}${errors?.email ? ' aria-invalid="true"' : ""}></div>`;
 }
 
 export function turnstileWidget(env, action, errors) {
