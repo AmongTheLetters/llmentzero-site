@@ -26,7 +26,7 @@ run_worker_first = [
 [[d1_databases]]
 binding = "DB"
 database_name = "llmentzero"
-database_id = "REPLACE_WITH_D1_DATABASE_ID"   # from: npx wrangler d1 create llmentzero
+database_id = "5f2a3031-6762-4f58-8e04-a16a2643bc33"
 migrations_dir = "migrations"
 
 [vars]
