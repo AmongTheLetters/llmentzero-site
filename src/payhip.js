@@ -1,6 +1,6 @@
 // Payhip webhook: https://help.payhip.com/article/115-webhooks
 // Payhip signs every event with signature = SHA-256(hex) of the store's API key.
-// "paid" creates licences (matched to accounts by email); "refunded" marks them refunded.
+// "paid" creates licences (matched to accounts by email); "refunded" (full OR partial) ends them.
 import { text } from "./lib/http.js";
 import { normaliseEmail, now, randomId, safeEqual, sha256Hex } from "./lib/util.js";
 import { audit } from "./auth.js";
@@ -67,10 +67,10 @@ export async function postPayhip(request, env) {
   }
 
   if (p.type === "refunded") {
-    const full = Number(p.amount_refunded) >= Number(p.price);
-    const status = full ? "refunded" : "partial_refund";
-    const r = await env.DB.prepare("UPDATE licences SET status = ?, updated_at = ? WHERE order_id = ?").bind(status, t, orderId).run();
-    await audit(env, "payhip.refunded", { detail: `order=${orderId} status=${status} rows=${r.meta?.changes || 0}` });
+    // Any refund, full or partial, ends every licence on the order (Chris's decision, Oct 16 2026).
+    if (!orderId) return text("Missing id", 400);
+    const r = await env.DB.prepare("UPDATE licences SET status = 'refunded', updated_at = ? WHERE order_id = ?").bind(t, orderId).run();
+    await audit(env, "payhip.refunded", { detail: `order=${orderId} amount_refunded=${Number(p.amount_refunded) || 0} of ${Number(p.price) || 0} rows=${r.meta?.changes || 0}` });
     return text("ok");
   }
 

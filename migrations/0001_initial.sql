@@ -73,7 +73,7 @@ CREATE TABLE licences (
   licence_type  TEXT NOT NULL,          -- 'business' | 'deployment' | other product key
   devices       INTEGER NOT NULL DEFAULT 1,
   licence_key   TEXT,
-  status        TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','refunded','partial_refund','revoked')),
+  status        TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','refunded','revoked')),  -- any refund, full or partial, ends the licence
   price_cents   INTEGER,
   currency      TEXT,
   purchased_at  INTEGER NOT NULL,

@@ -1,7 +1,7 @@
 // LlmentZero Worker. Static pages are served straight from dist/ by Workers static assets
 // (free, unlimited, never touch this code). Only the paths in wrangler.toml's
 // assets.run_worker_first reach this fetch handler.
-import { getAccept, getAccount, getSignin, getSignup, getVerify, postAccept, postSignin, postSignout, postSignup, postVerify } from "./auth.js";
+import { getAccept, getAccount, getMe, getSignin, getSignup, getVerify, postAccept, postSignin, postSignout, postSignup, postVerify } from "./auth.js";
 import { getCatalogue, getDownload, getSkill, notFound } from "./skills.js";
 import { postPayhip } from "./payhip.js";
 import { html, text } from "./lib/http.js";
@@ -20,6 +20,7 @@ const routes = {
   "POST /account/accept": postAccept,
   "POST /signout": postSignout,
   "GET /skills": getCatalogue,
+  "GET /api/me": getMe,
   "POST /webhooks/payhip": postPayhip,
 };
 

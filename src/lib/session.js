@@ -45,7 +45,7 @@ export async function destroySession(env, request) {
 
 export async function hasActiveBusinessLicence(env, email) {
   const row = await env.DB.prepare(
-    "SELECT 1 AS ok FROM licences WHERE email = ? AND status IN ('active','partial_refund') AND licence_type IN ('business','deployment') LIMIT 1"
+    "SELECT 1 AS ok FROM licences WHERE email = ? AND status = 'active' AND licence_type IN ('business','deployment') LIMIT 1"
   ).bind(email).first();
   return !!row;
 }

@@ -274,7 +274,7 @@ describe("skills and gated downloads", () => {
     const refunded = await call("/webhooks/payhip", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: "ORDER1", email, price: 3000, amount_refunded: 3000, type: "refunded", signature: sig, items: [] }),
+      body: JSON.stringify({ id: "ORDER1", email, price: 3000, amount_refunded: 500, type: "refunded", signature: sig, items: [] }), // partial refund still ends it
     });
     expect(refunded.status).toBe(200);
     expect(await env.DB.prepare("SELECT status FROM licences WHERE order_id = 'ORDER1'").first("status")).toBe("refunded");
@@ -316,6 +316,41 @@ async function sha256(s) {
   const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
   return [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, "0")).join("");
 }
+
+describe("account button and /api/me", () => {
+  const pages = ["/", "/how-it-works", "/tiers", "/demos", "/about", "/requests", "/contact", "/licence", "/terms", "/privacy", "/accessibility", "/no-such-page"];
+  it("every static page has the no-JS account link and the menu script", async () => {
+    for (const p of pages) {
+      const body = await (await call(p)).text();
+      expect(body, p).toContain('<div class="acct"><a class="acct-btn" href="/account">');
+      expect(body, p).toContain('<script src="/assets/account-menu.js" defer></script>');
+    }
+  });
+  it("/demos points to /skills", async () => {
+    expect(await (await call("/demos")).text()).toContain('href="/skills"');
+  });
+  it("worker pages tell the script the signed-in state", async () => {
+    expect(await (await call("/signin")).text()).toContain('<div class="acct" data-state="out">');
+    const { cookie, email } = await signUp();
+    const body = await (await call("/account", { headers: { Cookie: cookie } })).text();
+    expect(body).toContain(`data-state="in" data-initial="${email[0].toUpperCase()}" data-email="${email}"`);
+    expect(body).toContain('id="licences"');
+    expect(body).toContain('id="downloads"');
+  });
+  it("/api/me reports sign-in state without caching", async () => {
+    let res = await call("/api/me");
+    expect(res.headers.get("Cache-Control")).toBe("private, no-store");
+    expect(await res.json()).toEqual({ signedIn: false });
+    const { cookie, email } = await signUp();
+    res = await call("/api/me", { headers: { Cookie: cookie } });
+    expect(await res.json()).toEqual({ signedIn: true, initial: email[0].toUpperCase(), email });
+  });
+  it("records the revised privacy version on acceptance", async () => {
+    expect(LEGAL.privacy.version).toBe("LZ-PRIV-2026-10-16.2");
+    const { email } = await signUp();
+    expect(await env.DB.prepare("SELECT privacy_version FROM terms_acceptances WHERE email = ?").bind(email).first("privacy_version")).toBe("LZ-PRIV-2026-10-16.2");
+  });
+});
 
 describe("safety guard", () => {
   it("refuses EMAIL_MODE=log on the real domain", async () => {

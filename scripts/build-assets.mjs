@@ -23,7 +23,7 @@ cpSync(join(root, "config/_headers"), join(dist, "_headers"));
 const legal = {};
 for (const [key, file] of [["terms", "terms.html"], ["licence", "licence.html"], ["privacy", "privacy.html"]]) {
   const bytes = readFileSync(join(dist, file));
-  const id = /Document ID: (LZ-[A-Z]+-\d{4}-\d{2}-\d{2})/.exec(bytes.toString("utf8"));
+  const id = /Document ID: (LZ-[A-Z]+-\d{4}-\d{2}-\d{2}(?:\.\d+)?)/.exec(bytes.toString("utf8"));
   if (!id) throw new Error(`No "Document ID: LZ-..." line found in ${file}`);
   legal[key] = { version: id[1], sha256: createHash("sha256").update(bytes).digest("hex"), path: "/" + file.replace(/\.html$/, "") };
 }

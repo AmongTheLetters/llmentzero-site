@@ -236,10 +236,10 @@ export async function recordAcceptance(env, { userId, email, method, acceptedAt,
 }
 
 // ---------- Re-accept changed terms ----------
-function acceptPage({ errors = {}, next }) {
+function acceptPage({ errors = {}, next, user = null }) {
   return layout({
     title: errors && Object.keys(errors).length ? "Error: Updated terms" : "Updated terms",
-    user: true,
+    user,
     body: `${errorSummary(errors)}<h1>We've updated our terms</h1><p>Please read the current versions and agree to keep using your account. Downloads need the current terms.</p>
 <form method="post" action="/account/accept" novalidate class="stack"><input type="hidden" name="next" value="${esc(next)}">${termsCheckbox(errors)}<button type="submit" class="btn">Agree and continue</button></form>
 <form method="post" action="/signout"><button type="submit" class="btn ghost">Sign out instead</button></form>`,
@@ -251,7 +251,7 @@ export async function getAccept(request, env) {
   const url = new URL(request.url);
   if (!user) return redirect(`/signin?next=${encodeURIComponent(url.pathname + url.search)}`);
   if (await acceptedCurrentTerms(env, user.id)) return redirect(nextParam(url));
-  return html(acceptPage({ next: nextParam(url) }), { cookies });
+  return html(acceptPage({ next: nextParam(url), user }), { cookies });
 }
 
 export async function postAccept(request, env) {
@@ -260,7 +260,7 @@ export async function postAccept(request, env) {
   if (!user) return redirect("/signin");
   const f = await readForm(request);
   const next = safeNext(f.get("next"));
-  if (f.get("terms") !== "yes") return html(acceptPage({ errors: { terms: "Tick the box to agree to the Terms of Service and Skill Licence" }, next }), { status: 400 });
+  if (f.get("terms") !== "yes") return html(acceptPage({ errors: { terms: "Tick the box to agree to the Terms of Service and Skill Licence" }, next, user }), { status: 400 });
   await recordAcceptance(env, { userId: user.id, email: user.email, method: "re-accept checkbox", acceptedAt: now(), ipHash: await ipHash(env, request), ua: userAgent(request) });
   return redirect(next);
 }
@@ -277,7 +277,7 @@ export async function getAccount(request, env) {
     env.DB.prepare("SELECT terms_version, licence_version, accepted_at FROM terms_acceptances WHERE user_id = ? ORDER BY accepted_at DESC LIMIT 1").bind(user.id).first(),
     env.DB.prepare("SELECT d.slug, d.version, d.downloaded_at, s.title FROM downloads d LEFT JOIN skills s ON s.slug = d.slug WHERE d.user_id = ? ORDER BY d.downloaded_at DESC LIMIT 10").bind(user.id).all(),
   ]);
-  const statusText = { active: "Active", partial_refund: "Active (partly refunded)", refunded: "Refunded", revoked: "Revoked" };
+  const statusText = { active: "Active", refunded: "Refunded (licence ended)", revoked: "Revoked" };
   const licences = lic.results || [];
   const licRows = licences.length
     ? `<table><caption class="visually-hidden">Your licences</caption><thead><tr><th scope="col">Product</th><th scope="col">Devices</th><th scope="col">Status</th><th scope="col">Order</th><th scope="col">Bought</th></tr></thead><tbody>${licences
@@ -293,13 +293,21 @@ export async function getAccount(request, env) {
       user,
       body: `<p class="eyebrow">Account</p><h1>Your account</h1>
 <dl class="facts"><div><dt>Email</dt><dd>${esc(user.email)}</dd></div><div><dt>Member since</dt><dd>${fmtDate(user.createdAt)}</dd></div><div><dt>Email updates</dt><dd>${user.marketingConsent ? "Yes" : "No"}</dd></div>${acc ? `<div><dt>Terms agreed</dt><dd>${esc(acc.terms_version)} and ${esc(acc.licence_version)}, on ${fmtDate(acc.accepted_at)}</dd></div>` : ""}</dl>
-<h2 class="h3">Licences</h2>${licRows}
-<h2 class="h3">Recent downloads</h2>${dlRows}
+<h2 class="h3" id="licences">Licences</h2>${licRows}
+<h2 class="h3" id="downloads">Recent downloads</h2>${dlRows}
 <h2 class="h3">Your data</h2><p>To get a copy of your data, change your email, stop email updates or close your account, email <a href="mailto:llmentzero@gmail.com">llmentzero@gmail.com</a>. See the <a href="/privacy">Privacy Policy</a>.</p>
 <form method="post" action="/signout"><button type="submit" class="btn ghost">Sign out</button></form>`,
     }),
     { cookies }
   );
+}
+
+export async function getMe(request, env) {
+  const { user, cookies } = await getSession(env, request);
+  const body = user ? { signedIn: true, initial: user.email.slice(0, 1).toUpperCase(), email: user.email } : { signedIn: false };
+  const h = new Headers({ "Content-Type": "application/json; charset=utf-8", "Cache-Control": "private, no-store", "X-Robots-Tag": "noindex, nofollow, noai, noimageai", "X-Content-Type-Options": "nosniff" });
+  for (const c of cookies) h.append("Set-Cookie", c);
+  return new Response(JSON.stringify(body), { headers: h });
 }
 
 export async function postSignout(request, env) {

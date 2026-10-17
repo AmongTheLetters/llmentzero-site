@@ -2,17 +2,17 @@
 export const LEGAL = {
   "terms": {
     "version": "LZ-TERMS-2026-10-16",
-    "sha256": "ebab03d2e42104599127066a17945fd768c946689991f61ed772d8e9f8d38742",
+    "sha256": "c66425ac324a5843701313771de99715e06a50328a01fc1d17e99d277b5ca1f4",
     "path": "/terms"
   },
   "licence": {
     "version": "LZ-LIC-2026-10-16",
-    "sha256": "b3fcc1865568dc50457dec47eb366f385c6e9fa3b34976f0ad0da644e89de82f",
+    "sha256": "2dd27395915d774bbac955b63e97663907e5b44b927af069d854289881a3f1e2",
     "path": "/licence"
   },
   "privacy": {
-    "version": "LZ-PRIV-2026-10-16",
-    "sha256": "a319354577171e15a79fccd75516aba49c39fc4e7f072e411a4fd16dad29eca9",
+    "version": "LZ-PRIV-2026-10-16.2",
+    "sha256": "8cfac28c95a7be2b97b0b2023154b92025a738ea4a6d838a9058940e11d6c3f2",
     "path": "/privacy"
   }
 };

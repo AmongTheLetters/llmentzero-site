@@ -43,7 +43,7 @@ The site can run on **Cloudflare Workers with static assets** (Free plan only: n
 | `/account`, `/account/accept`, `/signout` | Account page (licences, downloads, terms record), re-accept changed terms, sign out |
 | `/skills`, `/skills/<slug>` | Skill catalogue and pages, with the "When you need a licence" notice and the friendly reminder |
 | `/download/<slug>` | Signed-in only. Streams the skill file from D1 with the licence line and hidden canary added |
-| `/webhooks/payhip` | Payhip `paid` / `refunded` events → licences, matched to accounts by email |
+| `/webhooks/payhip` | Payhip `paid` / `refunded` events → licences, matched to accounts by email. Any refund, full or partial, ends the licence |
 
 **How it works, briefly**
 - **Sign-in:** 6-digit code, 10-minute expiry, single use, 5 tries per code; only a SHA-256 hash is stored. Limits: 5 codes per email and 20 per network per hour, 60 code checks per network per hour, 60 downloads per account per day (counters in D1).
