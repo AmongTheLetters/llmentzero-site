@@ -1,0 +1,60 @@
+# LlmentZero site on Cloudflare Workers (Free plan only: no R2, no paid add-ons).
+name = "llmentzero"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+# account_id = "PUT_ACCOUNT_ID_HERE"   # optional; or set CLOUDFLARE_ACCOUNT_ID
+
+# The site lives on llmentzero.com; the *.workers.dev address is off (Oct 19, 2026). Previews off.
+workers_dev = false
+preview_urls = false
+
+# llmentzero.com is served by this Worker as a Custom Domain (Cloudflare creates the DNS record and certificate).
+# www.llmentzero.com is a separate tiny Worker (www-redirect/) that 301s to the apex.
+routes = [
+  { pattern = "llmentzero.com", custom_domain = true }
+]
+
+[build]
+command = "node scripts/build-assets.mjs"
+
+[assets]
+directory = "./dist"
+binding = "ASSETS"
+html_handling = "auto-trailing-slash"
+not_found_handling = "404-page"
+# Only these paths run Worker code. Every other request (all existing pages, robots.txt,
+# /.well-known/tdmrep.json, CSS, images) is served directly as a static asset: free and unlimited.
+run_worker_first = [
+  "/signup", "/signin", "/signin/*", "/forgot-password", "/verify", "/account", "/account/*", "/signout",
+  "/skills", "/skills/*", "/download/*", "/webhooks/*", "/api/*"
+]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "llmentzero"
+database_id = "5f2a3031-6762-4f58-8e04-a16a2643bc33"
+migrations_dir = "migrations"
+
+[vars]
+EMAIL_FROM = "LlmentZero <no-reply@mail.llmentzero.com>"
+EMAIL_REPLY_TO = "llmentzero@gmail.com"
+TURNSTILE_SITE_KEY = "0x4AAAAAAFY-xUUqJQoVXeUt"
+TURNSTILE_EXPECTED_HOSTNAME = "llmentzero.com"   # comma-separated if more hosts are ever needed
+# Payhip product page for the Business Licence. Empty = buy links point to /tiers until it exists.
+PAYHIP_URL = ""
+# JSON map of Payhip product_id -> licence type, e.g. {"2804256":"business","2804257":"deployment"}.
+# Empty {} = every Payhip product counts as a Business Licence.
+PAYHIP_PRODUCTS = "{}"
+
+# Secrets (never in this file): npx wrangler secret put <NAME>
+#   RESEND_API_KEY    Resend sending-only key
+#   TURNSTILE_SECRET  Turnstile widget secret key
+#   IP_HASH_KEY       random 32+ byte string used to hash IP addresses (openssl rand -hex 32)
+#   PAYHIP_API_KEY    Payhip Settings > Developer API key (verifies webhook signatures)
+
+[triggers]
+crons = ["17 7 * * *"]   # daily clean-up at 07:17 UTC (3:17 AM Toronto EDT)
+
+[observability]
+enabled = true
+

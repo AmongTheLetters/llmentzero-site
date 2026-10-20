@@ -103,3 +103,26 @@ footer p{margin:.2em 0}footer .wrap>p+p{display:none!important}footer{margin-top
 }
 .docid{font-size:.8rem;opacity:.85;margin-top:2rem;overflow-wrap:anywhere}
 @media print{.docid{font-size:7.5pt;line-height:1.25;color:#333;margin:.4em 0 0;overflow-wrap:anywhere}}
+/* Account button (top right) and its menu: see /assets/account-menu.js */
+.visually-hidden{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0}
+header .nav{margin-left:auto}
+.acct{position:relative;flex:0 0 auto}
+.acct-btn{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:50%;border:2px solid var(--gold);background:transparent;color:var(--brass);cursor:pointer;padding:0;text-decoration:none}
+.acct-btn:hover{background:rgba(212,175,55,.15);color:var(--brass)}
+.acct-btn:focus-visible{outline:3px solid var(--brass);outline-offset:3px}
+.acct-icon{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
+.acct-btn.is-in{background:var(--gold);color:var(--ink)}
+.acct-initial{font-family:'Michroma',sans-serif;font-size:1.05rem;line-height:1}
+.acct-menu{position:absolute;right:0;top:calc(100% + .5rem);min-width:14rem;max-width:min(20rem,calc(100vw - 2rem));background:var(--navy);border:1px solid var(--gold);box-shadow:0 12px 30px rgba(0,0,0,.5);padding:.4rem 0;z-index:30}
+.acct-menu[hidden]{display:none}
+.acct-menu ul{list-style:none;margin:0;padding:0;display:block}
+.acct-menu a,.acct-menu .acct-signout{display:block;width:100%;text-align:left;padding:.7rem 1.1rem;color:var(--ivory);text-decoration:none;background:none;border:0;border-left:3px solid transparent;font:1rem 'Saira Stencil One',sans-serif;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;min-height:44px}
+.acct-menu a:hover,.acct-menu .acct-signout:hover,.acct-menu a:focus-visible,.acct-menu .acct-signout:focus-visible{border-left-color:var(--gold);color:var(--brass)}
+.acct-menu a:focus-visible,.acct-menu .acct-signout:focus-visible{outline:3px solid var(--brass);outline-offset:-3px}
+.acct-menu form{margin:0}
+.acct-who{margin:0;padding:.5rem 1.1rem .6rem;border-bottom:1px solid var(--line);color:var(--mist);font-size:.9rem;overflow-wrap:anywhere}
+.acct-who strong{color:var(--ivory);font-weight:500}
+@media print{.acct{display:none!important}}
+/* Small screens: make room for the account button without horizontal scrolling (also fixes a 9px overflow at 320px) */
+@media (max-width:420px){header .wrap{gap:.5rem;padding-inline:.75rem}.brand img{height:40px}.nav-toggle{padding:.45rem .6rem}}
+@media (max-width:360px){.nav-toggle .nav-label{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}.nav-toggle{gap:0;min-width:44px;justify-content:center}}

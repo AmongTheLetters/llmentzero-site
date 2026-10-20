@@ -1,0 +1,22 @@
+{
+  "name": "llmentzero-site",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build-assets.mjs",
+    "dev": "wrangler dev",
+    "test": "vitest run",
+    "db:migrate:local": "wrangler d1 migrations apply llmentzero --local",
+    "db:migrate:remote": "wrangler d1 migrations apply llmentzero --remote",
+    "deploy": "wrangler deploy",
+    "pretest": "node scripts/build-assets.mjs"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "^1.4.4",
+    "vitest": "4.1",
+    "wrangler": "^4.151.1"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
