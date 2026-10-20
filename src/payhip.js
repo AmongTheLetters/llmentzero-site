@@ -2,6 +2,7 @@
 // Payhip signs every event with signature = SHA-256(hex) of the store's API key.
 // "paid" creates licences (matched to accounts by email); "refunded" (full OR partial) ends them.
 import { text } from "./lib/http.js";
+import { refundEndedEmail, sendEmail } from "./lib/email.js";
 import { normaliseEmail, now, randomId, safeEqual, sha256Hex } from "./lib/util.js";
 import { audit } from "./auth.js";
 
@@ -25,7 +26,7 @@ async function readPayload(request) {
   return o;
 }
 
-export async function postPayhip(request, env) {
+export async function postPayhip(request, env, ctx) {
   if (!env.PAYHIP_API_KEY) return text("Webhook not configured", 503);
   if (Number(request.headers.get("Content-Length") || 0) > 64 * 1024) return text("Too large", 413);
   let p;
@@ -73,10 +74,69 @@ export async function postPayhip(request, env) {
     if (!orderId) return text("Missing id", 400);
     const r = await env.DB.prepare("UPDATE licences SET status = 'refunded', updated_at = ? WHERE order_id = ?").bind(t, orderId).run();
     await audit(env, "payhip.refunded", { detail: `order=${orderId} amount_refunded=${Number(p.amount_refunded) || 0} of ${Number(p.price) || 0} rows=${r.meta?.changes || 0}` });
+    // Everyone whose licence this order's refund ended. refund_notices makes retries safe: people
+    // already emailed are skipped, and anyone whose email failed earlier gets another try.
+    const ending = (await env.DB.prepare("SELECT id, email, product_name, devices, assigned_devices FROM licences WHERE order_id = ? AND status = 'refunded'").bind(orderId).all()).results || [];
+    if (ending.length) {
+      try {
+        await notifyRefund(env, request, orderId, ending);
+      } catch (err) {
+        // Never let email trouble change the webhook response.
+        await audit(env, "email.failed", { detail: `refund notices order=${orderId}: ${String(err && err.message ? err.message : err)}` }).catch(() => {});
+      }
+    }
     return text("ok");
   }
 
   // subscription.* and anything else: acknowledge so Payhip doesn't retry.
   await audit(env, "payhip.ignored", { detail: String(p.type).slice(0, 50) });
   return text("ok");
+}
+
+/**
+ * Emails everyone whose licence a refund ended: the buyer, and every account that was assigned
+ * devices from the order (even if it has since left the team). One email per person per order:
+ * a row in refund_notices is claimed before sending, so webhook retries never send twice.
+ */
+async function notifyRefund(env, request, orderId, ending) {
+  const ids = ending.map((l) => l.id);
+  const marks = ids.map(() => "?").join(",");
+  const { results: members = [] } = await env.DB.prepare(
+    `SELECT u.email, t.name AS team_name, SUM(a.devices) AS devices
+     FROM licence_assignments a JOIN users u ON u.id = a.user_id JOIN teams t ON t.id = a.team_id
+     WHERE a.licence_id IN (${marks}) GROUP BY u.email, t.name`
+  ).bind(...ids).all();
+  const people = new Map();
+  for (const l of ending) {
+    const cur = people.get(l.email) || { role: "buyer", devices: 0, assignedToOthers: 0, product: l.product_name };
+    cur.devices += Number(l.devices || 0);
+    cur.assignedToOthers += Number(l.assigned_devices || 0);
+    people.set(l.email, cur);
+  }
+  for (const m of members) {
+    if (people.has(m.email)) {
+      // The buyer assigned devices to themselves: one email, and those devices aren't "others".
+      people.get(m.email).assignedToOthers -= Number(m.devices || 0);
+      continue;
+    }
+    people.set(m.email, { role: "member", devices: Number(m.devices || 0), teamName: m.team_name });
+  }
+  const origin = new URL(request.url).origin;
+  const t = now();
+  for (const [email, info] of people) {
+    const claim = await env.DB.prepare("INSERT INTO refund_notices (order_id, email, role, devices, created_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(order_id, email) DO NOTHING")
+      .bind(orderId, email, info.role, info.devices, t).run();
+    if (!claim.meta?.changes) continue; // already sent (or being sent) for this order
+    const msg = refundEndedEmail({ role: info.role, orderId, product: info.product, devices: info.devices, assignedToOthers: Math.max(0, info.assignedToOthers || 0), teamName: info.teamName, origin });
+    try {
+      const key = `refund-${orderId}-${(await sha256Hex(email)).slice(0, 24)}`;
+      await sendEmail(env, { to: email, ...msg, idempotencyKey: key });
+      await env.DB.prepare("UPDATE refund_notices SET sent_at = ? WHERE order_id = ? AND email = ?").bind(now(), orderId, email).run();
+      await audit(env, "refund.notice_sent", { detail: `order=${orderId} role=${info.role}` });
+    } catch (err) {
+      // Release the claim so a later webhook delivery can try again.
+      await env.DB.prepare("DELETE FROM refund_notices WHERE order_id = ? AND email = ? AND sent_at IS NULL").bind(orderId, email).run();
+      await audit(env, "email.failed", { detail: `refund notice order=${orderId} role=${info.role}: ${String(err && err.message ? err.message : err)}` });
+    }
+  }
 }

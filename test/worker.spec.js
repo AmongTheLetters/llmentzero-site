@@ -279,6 +279,7 @@ describe("skills and gated downloads", () => {
     expect(body).not.toContain('id="lz-reminder"');
     expect(await (await call("/account", { headers: { Cookie: cookie } })).text()).toContain("ORDER1");
 
+    mockOutbound(); // refund notice email
     const refunded = await call("/webhooks/payhip", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

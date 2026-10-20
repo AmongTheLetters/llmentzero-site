@@ -96,3 +96,24 @@ export function teamInviteEmail({ teamName, inviterEmail, inviteeEmail, link, ex
     html: wrapHtml(`<p>Hi there,</p><p>${esc(inviterEmail)} has invited you to join the team <strong>${esc(teamName)}</strong> on LlmentZero. The team owner can give your account Business Licence devices.</p><p>To see the invite and accept it, open the link below, then sign in or create a free account with this email address (${esc(inviteeEmail)}).</p><p><a href="${esc(link)}" style="color:#0b6e66;font-weight:bold">See the team invite</a></p><p>The link works once and expires on ${esc(expiresOn)}. Nothing happens unless you accept. If you weren't expecting this, you can ignore this email.</p>`),
   };
 }
+
+/** A refund ended licences. role "buyer" (bought the order) or "member" (devices assigned from it). */
+export function refundEndedEmail({ role, orderId, product, devices, assignedToOthers = 0, teamName = "", origin = "https://llmentzero.com" }) {
+  const d = (n) => `${n} device${Number(n) === 1 ? "" : "s"}`;
+  const lines = role === "buyer"
+    ? [
+        `Payhip order ${orderId} was refunded, so the licence bought in that order has ended. This covers ${d(devices)} of ${product || "the LlmentZero Business Licence"}.`,
+        assignedToOthers > 0 ? `This includes ${d(assignedToOthers)} you had assigned to team members. We've let each of them know.` : "",
+        "From now on, any business or commercial use of LlmentZero skills on those devices must stop, as set out in section 10.6 of the Skill Licence. Personal use is still free.",
+      ]
+    : [
+        `${d(devices)} assigned to your account through the team "${teamName}" ${Number(devices) === 1 ? "has" : "have"} ended. ${Number(devices) === 1 ? "It" : "They"} came from an order placed by the team owner, and that order was refunded.`,
+        "From now on, any business or commercial use of LlmentZero skills on those devices must stop, as set out in section 10.6 of the Skill Licence. Personal use is still free. Any other devices on your account are not affected.",
+      ];
+  const body = lines.filter(Boolean);
+  return {
+    subject: "Your LlmentZero licence has ended",
+    text: `Hi there,\n\n${body.join("\n\n")}\n\nYou can see your licences at ${origin}/account. The Skill Licence is at ${origin}/licence.\n\nIf you have any questions, email llmentzero@gmail.com.\n\nLlmentZero · Ontario, Canada · llmentzero@gmail.com\n`,
+    html: wrapHtml(`<p>Hi there,</p>${body.map((l) => `<p>${esc(l)}</p>`).join("")}<p>You can see your licences on <a href="${esc(origin)}/account" style="color:#0b6e66">your account page</a>. Read the <a href="${esc(origin)}/licence" style="color:#0b6e66">Skill Licence</a>.</p><p>If you have any questions, email <a href="mailto:llmentzero@gmail.com" style="color:#0b6e66">llmentzero@gmail.com</a>.</p>`),
+  };
+}

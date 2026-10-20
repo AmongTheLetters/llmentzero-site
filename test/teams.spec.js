@@ -14,7 +14,7 @@ async function payhip(body) {
 }
 const buy = (email, orderId, quantity, date = 1792200000) =>
   payhip({ id: orderId, email, price: 2900 * quantity, currency: "CAD", type: "paid", date, items: [{ product_id: "123", product_key: "wuUFT", product_name: "LlmentZero Business Licence (per device)", quantity: String(quantity) }] });
-const refund = (email, orderId) => payhip({ id: orderId, email, price: 2900, amount_refunded: 2900, type: "refunded", items: [] });
+const refund = (email, orderId) => (vi.isMockFunction(globalThis.fetch) || mockOutbound(), payhip({ id: orderId, email, price: 2900, amount_refunded: 2900, type: "refunded", items: [] }));
 
 const get = (path, cookie) => call(path, { headers: { Cookie: cookie } });
 const post = (path, data, cookie, headers = {}) => form(path, data, { headers: { Cookie: cookie, ...headers } });
@@ -375,5 +375,71 @@ describe("refunds", () => {
     expect(await reminderShown(owner.cookie)).toBe(false);
     await assign(owner, memberId, 1);
     expect(await reminderShown(owner.cookie)).toBe(true);
+  });
+});
+
+describe("refund notices", () => {
+  it("emails the buyer and every member who had devices from the order, once, even on retries", async () => {
+    const { owner, member, memberId, team } = await teamWithMember();
+    const leaver = `leaver-${uid()}@example.com`;
+    const { token } = await invite(owner, leaver);
+    const l = await signUp(leaver);
+    await join(l, token);
+    const order = `N-${uid()}`;
+    await buy(owner.email, order, 4);
+    await assign(owner, memberId, 2);
+    await assign(owner, await userId(leaver), 1);
+    await post("/account/team/leave", { step: "confirm" }, l.cookie); // left the team, still notified
+
+    const { resendCalls } = mockOutbound();
+    expect((await refund(owner.email, order)).status).toBe(200);
+    const to = resendCalls.map((c) => c.body.to[0]).sort();
+    expect(to).toEqual([owner.email, member.email, leaver].sort());
+    const byTo = Object.fromEntries(resendCalls.map((c) => [c.body.to[0], c.body]));
+    expect(byTo[owner.email].subject).toBe("Your LlmentZero licence has ended");
+    expect(byTo[owner.email].text).toContain(`Payhip order ${order} was refunded`);
+    expect(byTo[owner.email].text).toContain("4 devices");
+    expect(byTo[owner.email].text).toContain("3 devices you had assigned to team members");
+    expect(byTo[member.email].text).toContain('2 devices assigned to your account through the team "Acme & Co." have ended');
+    expect(byTo[member.email].text).toContain("order placed by the team owner, and that order was refunded");
+    expect(byTo[member.email].text).not.toContain(owner.email);
+    expect(byTo[leaver].text).toContain("1 device assigned to your account");
+    for (const b of Object.values(byTo)) {
+      expect(b.text).toContain("must stop");
+      expect(b.text).toContain("llmentzero@gmail.com");
+      expect(b.from).toBe("LlmentZero <no-reply@mail.llmentzero.com>");
+    }
+    expect(byTo[member.email].html).toContain("Acme &amp; Co.");
+    // Payhip retries the webhook: nobody gets a second email.
+    expect((await refund(owner.email, order)).status).toBe(200);
+    expect(resendCalls.length).toBe(3);
+    expect(await env.DB.prepare("SELECT COUNT(*) AS n FROM refund_notices WHERE order_id = ? AND sent_at IS NOT NULL").bind(order).first("n")).toBe(3);
+    void team;
+  });
+
+  it("an email failure doesn't break the webhook, is audited, and is retried on the next delivery", async () => {
+    const buyer = await signUp();
+    const order = `F-${uid()}`;
+    await buy(buyer.email, order, 1);
+    const { resendCalls } = mockOutbound({ resendResponses: [422] });
+    const r = await refund(buyer.email, order);
+    expect(r.status).toBe(200);
+    expect(await r.text()).toBe("ok");
+    expect(await env.DB.prepare("SELECT status FROM licences WHERE order_id = ?").bind(order).first("status")).toBe("refunded");
+    expect(await env.DB.prepare("SELECT COUNT(*) AS n FROM audit_log WHERE event = 'email.failed' AND detail LIKE ?").bind(`%${order}%`).first("n")).toBe(1);
+    expect((await refund(buyer.email, order)).status).toBe(200);
+    expect(resendCalls.length).toBe(2);
+    expect(await env.DB.prepare("SELECT COUNT(*) AS n FROM refund_notices WHERE order_id = ? AND sent_at IS NOT NULL").bind(order).first("n")).toBe(1);
+  });
+
+  it("an owner who assigned devices to themselves gets one email", async () => {
+    const { owner } = await teamWithMember();
+    const order = `O-${uid()}`;
+    await buy(owner.email, order, 2);
+    await assign(owner, await userId(owner.email), 2);
+    const { resendCalls } = mockOutbound();
+    await refund(owner.email, order);
+    expect(resendCalls.map((c) => c.body.to[0])).toEqual([owner.email]);
+    expect(resendCalls[0].body.text).not.toContain("assigned to team members");
   });
 });
