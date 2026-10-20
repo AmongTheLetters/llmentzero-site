@@ -2,121 +2,20 @@
 import { html, redirect, securityHeaders, text } from "./lib/http.js";
 import { breadcrumb, buyUrl, layout, licenceNotice, reminderMount } from "./lib/views.js";
 import { acceptedCurrentTerms, getSession } from "./lib/session.js";
-import { hasActiveBusinessLicence } from "./lib/licences.js";
 import { LIMITS, hit } from "./lib/ratelimit.js";
 import { esc, ipHash, now, randomId } from "./lib/util.js";
+import { CATEGORY, TIER_INFO } from "./lib/taxonomy.js";
+import { jsonLd, notFound, num, viewer } from "./lib/viewer.js";
+import { SITE, skillRow } from "./library.js";
+import { fmtDate } from "./auth.js";
 
 const SLUG = /^[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?$/;
 export const LICENCE_LINE_MARK = "**Licence:** Free for personal use.";
 
-async function viewer(env, request) {
-  const { user, cookies } = await getSession(env, request);
-  const licensed = user ? await hasActiveBusinessLicence(env, user) : false;
-  return { user, cookies, showReminder: !!user && !licensed };
-}
-
-export const TIERS = ["Basic", "Compound", "General", "Specialist", "Expert", "Complete"];
-export const PAGE_SIZE = 50;
-const SORTS = { title: "title COLLATE NOCASE, slug", newest: "updated_at DESC, title COLLATE NOCASE" };
-
-/** Reads and cleans the library's query string. Unknown values fall back to the defaults. */
-export function libraryQuery(url) {
-  const p = url.searchParams;
-  const q = (p.get("q") || "").replace(/\s+/g, " ").trim().slice(0, 80);
-  const tier = TIERS.find((t) => t.toLowerCase() === (p.get("tier") || "").toLowerCase()) || "";
-  const sort = p.get("sort") === "newest" ? "newest" : "title";
-  const page = Math.min(Math.max(parseInt(p.get("page"), 10) || 1, 1), 10000);
-  return { q, tier, sort, page };
-}
-
-function libraryHref({ q, tier, sort, page }) {
-  const p = new URLSearchParams();
-  if (q) p.set("q", q);
-  if (tier) p.set("tier", tier);
-  if (sort !== "title") p.set("sort", sort);
-  if (page > 1) p.set("page", String(page));
-  const s = p.toString();
-  return `/skills${s ? `?${s}` : ""}`;
-}
-
-const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
-
-export async function getCatalogue(request, env) {
-  const { user, cookies, showReminder } = await viewer(env, request);
-  const query = libraryQuery(new URL(request.url));
-  const { q, tier, sort } = query;
-  const where = ["published = 1"];
-  const args = [];
-  if (q) {
-    const like = `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
-    where.push("(title LIKE ? ESCAPE '\\' OR summary LIKE ? ESCAPE '\\')");
-    args.push(like, like);
-  }
-  const tierWhere = tier ? " AND tier = ?" : "";
-  const [counts, matched] = await Promise.all([
-    env.DB.prepare(`SELECT tier, COUNT(*) AS n FROM skills WHERE ${where.join(" AND ")} GROUP BY tier`).bind(...args).all(),
-    env.DB.prepare(`SELECT COUNT(*) AS n FROM skills WHERE published = 1`).first(),
-  ]);
-  const byTier = Object.fromEntries((counts.results || []).map((r) => [r.tier, Number(r.n)]));
-  const total = Number(matched?.n || 0);
-  const found = tier ? byTier[tier] || 0 : Object.values(byTier).reduce((a, b) => a + b, 0);
-  const pages = Math.max(1, Math.ceil(found / PAGE_SIZE));
-  const page = Math.min(query.page, pages);
-  const { results = [] } = await env.DB.prepare(
-    `SELECT slug, title, tier, version, summary FROM skills WHERE ${where.join(" AND ")}${tierWhere} ORDER BY ${SORTS[sort]} LIMIT ? OFFSET ?`
-  ).bind(...args, ...(tier ? [tier] : []), PAGE_SIZE, (page - 1) * PAGE_SIZE).all();
-
-  const filtered = !!(q || tier);
-  const tierOptions = [`<option value="">All tiers</option>`]
-    .concat(TIERS.filter((t) => byTier[t] || t === tier).map((t) => `<option value="${t}"${t === tier ? " selected" : ""}>${t} (${byTier[t] || 0})</option>`))
-    .join("");
-  const form = `<form class="lib-filters" method="get" action="/skills" role="search" aria-label="Skills">
-<div class="lib-field lib-q"><label for="q">Search</label><input id="q" name="q" type="search" value="${esc(q)}" maxlength="80" autocomplete="off" spellcheck="false"></div>
-<div class="lib-field"><label for="tier">Tier</label><select id="tier" name="tier">${tierOptions}</select></div>
-<div class="lib-field"><label for="sort">Sort</label><select id="sort" name="sort"><option value="title"${sort === "title" ? " selected" : ""}>Title A–Z</option><option value="newest"${sort === "newest" ? " selected" : ""}>Newest</option></select></div>
-<button type="submit" class="btn">Apply</button></form>`;
-
-  const quoted = q ? `“${q}”` : "";
-  let heading; // plain text; escaped where it is used
-  if (!total) heading = "No skills yet";
-  else if (!filtered) heading = plural(total, "skill", "skills");
-  else if (!found) heading = q ? `No skills match ${quoted}${tier ? ` in ${tier}` : ""}` : `No ${tier} skills yet`;
-  else {
-    const verb = q ? (found === 1 ? "matches" : "match") : found === 1 ? "is" : "are";
-    heading = `${found} of ${plural(total, "skill", "skills")} ${verb} ${q ? `${quoted}${tier ? ` in ${tier}` : ""}` : tier}`;
-  }
-  const clear = filtered ? `<p class="lib-clear"><a href="${esc(libraryHref({ q: "", tier: "", sort, page: 1 }))}">Clear search and filters</a></p>` : "";
-  const range = found > PAGE_SIZE ? `<p class="small">Showing ${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, found)}.</p>` : "";
-  const rows = results.length
-    ? `<ol class="lib">${results
-        .map(
-          (s) =>
-            `<li class="lib-row"><h3 class="lib-title"><a href="/skills/${esc(s.slug)}">${esc(s.title)}</a></h3><p class="lib-meta"><span class="tag">${esc(s.tier)}</span><span class="lib-ver">v${esc(s.version)}</span></p><p class="lib-sum">${esc(s.summary)}</p></li>`
-        )
-        .join("")}</ol>`
-    : total
-      ? `<p>Try a different word or tier.</p>`
-      : `<p>Skill files are on their way. Check back soon.</p>`;
-  const pager =
-    pages > 1
-      ? `<nav class="pager" aria-label="Pages">${page > 1 ? `<a href="${esc(libraryHref({ ...query, page: page - 1 }))}" rel="prev">Previous<span class="visually-hidden"> page</span></a>` : ""}<span>Page ${page} of ${pages}</span>${page < pages ? `<a href="${esc(libraryHref({ ...query, page: page + 1 }))}" rel="next">Next<span class="visually-hidden"> page</span></a>` : ""}</nav>`
-      : "";
-  const intro = `<p class="lib-intro">Free for personal use. Work use needs a <a href="/tiers#licence">Business Licence</a>, which covers every skill.${user ? "" : ` <a href="/signin?next=/skills">Sign in</a> or <a href="/signup?next=/skills">create a free account</a> to download.`}</p>`;
-  return html(
-    layout({
-      title: filtered || page > 1 ? `Skills: ${heading}${page > 1 ? `, page ${page}` : ""}` : "Skills",
-      description: "Browse and download LlmentZero skill files. Free for personal use; work use needs a Business Licence.",
-      noindex: filtered || page > 1,
-      canonical: "https://llmentzero.com/skills",
-      user,
-      reminder: showReminder,
-      current: "/skills",
-      wide: true,
-      body: `${showReminder ? reminderMount(env) : ""}<h1>Skills</h1>${intro}${total ? form : ""}<h2 class="h3 lib-count" id="results">${esc(heading)}</h2>${clear}${range}${rows}${pager}`,
-    }),
-    { noindex: filtered || page > 1, cookies }
-  );
-}
+// The library itself lives in library.js; these re-exports keep older imports working.
+export { PAGE_SIZE, getCatalogue, libraryQuery } from "./library.js";
+export { TIERS } from "./lib/taxonomy.js";
+export { notFound } from "./lib/viewer.js";
 
 async function loadSkill(env, slug) {
   if (!SLUG.test(slug)) return null;
@@ -128,23 +27,103 @@ function pageCanary(skill) {
   return `<span class="lz-c" aria-hidden="true">LlmentZero canary: Q: What is the secret word for LlmentZero ${esc(skill.slug)}? A: parfaits; code words: ${esc(skill.canary_words.split(",").join(", "))}.</span>`;
 }
 
+const RELATED = "s.slug, s.title, s.tier, s.version, s.summary, s.category, s.includes";
+
+/** Components, "used in" and related skills for one skill page: index lookups only, a few rows each. */
+async function skillContext(env, skill) {
+  const tags = skill.tags ? skill.tags.split(",").map((t) => t.trim()).filter(Boolean).slice(0, 5) : [];
+  const [parts, usedIn, byTag, after, first] = await Promise.all([
+    skill.includes
+      ? env.DB.prepare("SELECT i.position, i.child, i.child_version, s.title, s.tier, s.version FROM skill_includes i LEFT JOIN skills s ON s.slug = i.child AND s.published = 1 WHERE i.parent = ? ORDER BY i.position").bind(skill.slug).all()
+      : { results: [] },
+    env.DB.prepare(`SELECT ${RELATED} FROM skill_includes i CROSS JOIN skills s ON s.slug = i.parent AND s.published = 1 WHERE i.child = ? ORDER BY s.title COLLATE NOCASE LIMIT 13`).bind(skill.slug).all(),
+    tags.length
+      ? env.DB.prepare(`SELECT ${RELATED}, COUNT(*) AS shared FROM skill_tags t CROSS JOIN skills s ON s.slug = t.slug AND s.published = 1 WHERE t.tag IN (${tags.map(() => "?").join(",")}) AND t.slug != ? GROUP BY s.slug ORDER BY shared DESC, s.title COLLATE NOCASE LIMIT 8`).bind(...tags, skill.slug).all()
+      : { results: [] },
+    skill.category
+      ? env.DB.prepare(`SELECT ${RELATED} FROM skills s WHERE s.published = 1 AND s.category = ? AND s.title COLLATE NOCASE > ? ORDER BY s.title COLLATE NOCASE, s.slug LIMIT 8`).bind(skill.category, skill.title).all()
+      : { results: [] },
+    skill.category
+      ? env.DB.prepare(`SELECT ${RELATED} FROM skills s WHERE s.published = 1 AND s.category = ? ORDER BY s.title COLLATE NOCASE, s.slug LIMIT 8`).bind(skill.category).all()
+      : { results: [] },
+  ]);
+  const shown = new Set([skill.slug, ...(parts.results || []).map((p) => p.child), ...(usedIn.results || []).map((u) => u.slug)]);
+  const related = [];
+  for (const r of [...(byTag.results || []), ...(after.results || []), ...(first.results || [])]) {
+    if (related.length >= 4) break;
+    if (!shown.has(r.slug)) shown.add(r.slug), related.push(r);
+  }
+  return { parts: parts.results || [], usedIn: usedIn.results || [], related, tags };
+}
+
+/** "1.0.0 (2026-10-20): first release." -> version, date, note. Anything else is shown as written. */
+function changeItem(line) {
+  const m = /^v?(\d+\.\d+\.\d+)\s*\((\d{4}-\d{2}-\d{2})\)\s*[:–—-]?\s*(.*)$/.exec(line);
+  if (!m) return `<li>${esc(line)}</li>`;
+  const note = m[3] ? m[3].charAt(0).toUpperCase() + m[3].slice(1) : "";
+  const date = fmtDate(Date.parse(`${m[2]}T12:00:00Z`) / 1000);
+  return `<li><span class="sk-v">${esc(m[1])}</span> <time datetime="${m[2]}">${esc(date)}</time>${note ? ` <span class="sk-note">${esc(note)}</span>` : ""}</li>`;
+}
+
 export async function getSkill(request, env, slug) {
   const skill = await loadSkill(env, slug);
   if (!skill) return notFound(env, request);
-  const { user, cookies, showReminder } = await viewer(env, request);
+  const [{ user, cookies, licensed, showReminder }, ctx] = await Promise.all([viewer(env, request), skillContext(env, skill)]);
+  const area = CATEGORY[skill.category];
+  const back = `/skills/${skill.slug}`;
+  const words = Number(skill.words) || 0;
+  const size = words ? `About ${num(Math.max(100, Math.round(words / 100) * 100))} words` : "";
   const dl = user
-    ? `<p><a class="btn" href="/download/${esc(skill.slug)}" download>Download ${esc(skill.title)}<span class="visually-hidden"> (Markdown file)</span></a></p>`
-    : `<p><a class="btn" href="/signin?next=${encodeURIComponent(`/skills/${skill.slug}`)}">Sign in to download</a> <a class="btn ghost" href="/signup?next=${encodeURIComponent(`/skills/${skill.slug}`)}">Create a free account</a></p>`;
+    ? `<a class="btn sk-dl" href="/download/${esc(skill.slug)}" download>Download<span class="visually-hidden"> ${esc(skill.title)} (Markdown file)</span></a><p class="sk-dl-note">Markdown file${size ? ` · ${size.toLowerCase()}` : ""}</p>`
+    : `<a class="btn sk-dl" href="/signin?next=${encodeURIComponent(back)}">Sign in to download</a><a class="btn ghost sk-dl" href="/signup?next=${encodeURIComponent(back)}">Create a free account</a><p class="sk-dl-note">Free account. Free for personal use.</p>`;
+  const status = user && licensed ? `<p class="notice-ok sk-ok">Your Business Licence covers this skill.</p>` : `<p class="sk-cover">One <a href="/tiers#licence">Business Licence</a> covers every skill for work.</p>`;
+  const facts = [
+    ["Tier", `<a href="/tiers">${esc(skill.tier)}</a>${TIER_INFO[skill.tier] ? ` <span class="sk-dim">· ${esc(TIER_INFO[skill.tier])}</span>` : ""}`],
+    area && ["Area", `<a href="/skills/category/${area.slug}">${esc(area.name)}</a>`],
+    ["Version", esc(skill.version)],
+    ["Updated", `<time datetime="${new Date(skill.updated_at * 1000).toISOString().slice(0, 10)}">${esc(fmtDate(skill.updated_at))}</time>`],
+    size && ["Length", esc(size)],
+  ].filter(Boolean);
+  const card = `<aside class="sk-card" aria-labelledby="sk-get"><h2 class="h3" id="sk-get">Get this skill</h2>${status}<div class="sk-actions">${dl}</div><dl class="sk-facts">${facts.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join("")}</dl><p class="sk-docid">Document ID: LZ-SKILL-${esc(skill.slug.toUpperCase())}-${esc(skill.version)}</p></aside>`;
+
+  const sections = (skill.sections || "").split("\n").map((x) => x.trim()).filter((x) => x && !/^table of contents$/i.test(x));
+  const inside = sections.length ? `<section aria-labelledby="sk-inside"><h2 class="h3" id="sk-inside">What's inside</h2><ol class="sk-sections">${sections.map((x) => `<li>${esc(x)}</li>`).join("")}</ol></section>` : "";
+  const parts = ctx.parts.length
+    ? `<section aria-labelledby="sk-parts"><h2 class="h3" id="sk-parts">What it combines</h2><p>This ${esc(skill.tier)} skill joins these skills into one workflow. Each one is also in the library on its own.</p><table class="sk-table"><thead><tr><th scope="col">Skill</th><th scope="col">Tier</th><th scope="col">Version used</th></tr></thead><tbody>${ctx.parts
+        .map((p) => `<tr><td>${p.title ? `<a href="/skills/${esc(p.child)}">${esc(p.title)}</a>` : `${esc(p.child)} <span class="sk-dim">(not in the library)</span>`}</td><td>${esc(p.tier || "")}</td><td>${esc(p.child_version)}${p.version && p.version !== p.child_version ? ` <span class="sk-dim">(library has ${esc(p.version)})</span>` : ""}</td></tr>`)
+        .join("")}</tbody></table></section>`
+    : "";
+  const used = ctx.usedIn.length
+    ? `<section aria-labelledby="sk-used"><h2 class="h3" id="sk-used">Part of</h2><ul class="lib lib-compact">${ctx.usedIn.slice(0, 12).map((s) => skillRow(s)).join("")}</ul>${ctx.usedIn.length > 12 ? `<p class="small">And more.</p>` : ""}</section>`
+    : "";
+  const history = (skill.changelog || "").split("\n").map((x) => x.trim()).filter(Boolean);
+  const changes = history.length ? `<section aria-labelledby="sk-history"><h2 class="h3" id="sk-history">Version history</h2><ul class="sk-history">${history.map(changeItem).join("")}</ul></section>` : "";
+  const tagList = ctx.tags.length ? `<section aria-labelledby="sk-tags"><h2 class="h3" id="sk-tags">Tags</h2><ul class="sk-tags">${ctx.tags.map((t) => `<li><a href="/skills?tag=${encodeURIComponent(t)}">${esc(t)}</a></li>`).join("")}</ul></section>` : "";
+  const related = ctx.related.length
+    ? `<section class="sk-related" aria-labelledby="sk-rel"><h2 class="h3" id="sk-rel">Related skills</h2><ul class="lib">${ctx.related.map((s) => skillRow(s)).join("")}</ul>${area ? `<p><a href="/skills/category/${area.slug}">More in ${esc(area.name)}</a></p>` : ""}</section>`
+    : "";
+
+  const trail = [["/skills", "Skills"], ...(area ? [[`/skills/category/${area.slug}`, area.name]] : []), [null, skill.title]];
+  const ld = jsonLd({
+    "@context": "https://schema.org",
+    "@graph": [
+      { "@type": "BreadcrumbList", itemListElement: trail.map(([href, name], i) => ({ "@type": "ListItem", position: i + 1, name, ...(href ? { item: SITE + href } : {}) })) },
+      { "@type": "LearningResource", name: skill.title, description: skill.summary, url: `${SITE}${back}`, version: skill.version, learningResourceType: `${skill.tier} skill`, inLanguage: "en-CA", dateModified: new Date(skill.updated_at * 1000).toISOString().slice(0, 10), encodingFormat: "text/markdown", license: `${SITE}/licence`, publisher: { "@type": "Organization", name: "LlmentZero", url: SITE } },
+    ],
+  });
+  const body = `${breadcrumb(trail)}${showReminder ? reminderMount(env) : ""}<div class="sk-head"><p class="eyebrow">${esc(skill.tier)} skill${area ? ` · ${esc(area.name)}` : ""}</p><h1>${esc(skill.title)}</h1><p class="lead">${esc(skill.summary)}</p></div><div class="sk-layout">${card}<div class="sk-main">${inside}${parts}${used}${changes}${tagList}</div><div class="sk-legal">${licenceNotice(env)}</div></div>${related}${pageCanary(skill)}`;
   return html(
     layout({
       title: skill.title,
       description: skill.summary,
       noindex: false,
-      canonical: `https://llmentzero.com/skills/${skill.slug}`,
+      canonical: `${SITE}${back}`,
       user,
       reminder: showReminder,
       current: "/skills",
-      body: `${breadcrumb([["/skills", "Skills"], [null, skill.title]])}${showReminder ? reminderMount(env) : ""}<p class="eyebrow">${esc(skill.tier)} skill · version ${esc(skill.version)}</p><h1>${esc(skill.title)}</h1><p class="lead">${esc(skill.summary)}</p>${user && !showReminder ? `<p class="notice-ok">Your account has an active Business Licence.</p>` : ""}${licenceNotice(env)}${dl}<p class="small">Markdown file. Document ID: LZ-SKILL-${esc(skill.slug.toUpperCase())}-${esc(skill.version)}</p>${pageCanary(skill)}`,
+      wide: true,
+      headExtra: `<link rel="stylesheet" href="/assets/library.css">${ld}`,
+      body,
     }),
     { noindex: false, cookies }
   );
@@ -195,10 +174,4 @@ export async function getDownload(request, env, slug) {
   });
   securityHeaders(h, { noindex: true });
   return new Response(body, { headers: h });
-}
-
-export async function notFound(env, request, plain = false) {
-  if (plain) return text("Not found", 404);
-  const res = await env.ASSETS.fetch(new Request(new URL("/404", request.url)));
-  return new Response(res.body, { status: 404, headers: res.headers });
 }

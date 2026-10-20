@@ -73,12 +73,12 @@ describe("skill library", () => {
     const body = await (await get("/skills")).text();
     expect(titles(body)).toEqual(["data-cleaning", "meeting-follow-up", "status-reporting"]);
     expect(body).toContain('<h2 class="h3 lib-count" id="results">3 skills</h2>');
-    expect(body).toContain('<span class="tag">Compound</span><span class="lib-ver">v1.0.0</span>');
+    expect(body).toContain('<p class="lib-meta"><span class="tag">Compound</span><span class="lib-ver"><span class="visually-hidden">Version </span>v1.0.0</span></p>');
     expect(body).toContain("A short status report from facts.");
     expect(body).not.toContain("hidden-draft");
-    expect(body).toContain('<form class="lib-filters" method="get" action="/skills" role="search"');
-    expect(body).toContain('<option value="Basic">Basic (2)</option>');
-    expect(body).not.toContain('value="Expert"'); // only tiers that have skills
+    expect(body).toContain('<form class="lib-search" method="get" action="/skills" role="search"');
+    expect(body).toContain('<a href="/skills?tier=Basic"><span class="facet-name">Basic</span><span class="facet-n">2<span class="visually-hidden"> skills</span></span></a>');
+    expect(body).not.toContain("tier=Expert"); // only tiers that have skills
   });
   it("sorts by newest", async () => {
     expect(titles(await (await get("/skills?sort=newest")).text())).toEqual(["meeting-follow-up", "status-reporting", "data-cleaning"]);
@@ -86,15 +86,16 @@ describe("skill library", () => {
   it("filters by tier and search, with clear counts", async () => {
     let body = await (await get("/skills?tier=basic")).text();
     expect(titles(body)).toEqual(["data-cleaning", "status-reporting"]);
-    expect(body).toContain("2 of 3 skills are Basic");
-    expect(body).toContain('<option value="Basic" selected>');
-    expect(body).toContain('href="/skills">Clear search and filters</a>');
+    expect(body).toContain('<h2 class="h3 lib-count" id="results">2 Basic skills</h2>');
+    expect(body).toContain('<a href="/skills?tier=Basic" aria-current="true">');
+    expect(body).toContain('<a class="chip" href="/skills"><span class="visually-hidden">Remove </span>Tier: Basic');
     body = await (await get("/skills?q=REPORT")).text();
     expect(titles(body)).toEqual(["status-reporting"]);
-    expect(body).toContain("1 of 3 skills matches “REPORT”");
+    expect(body).toContain("1 skill matches “REPORT”");
     body = await (await get("/skills?q=meeting&tier=Basic")).text();
     expect(titles(body)).toEqual([]);
-    expect(body).toContain("No skills match “meeting” in Basic");
+    expect(body).toContain("No Basic skills match “meeting”");
+    expect(body).toContain('<a href="/skills?q=meeting">Search all skills for “meeting”</a>');
     expect(body).toContain('name="robots" content="noindex');
   });
   it("treats % and _ in a search as plain text and escapes the query", async () => {
@@ -105,7 +106,10 @@ describe("skill library", () => {
   });
   it("cleans the query string", () => {
     const q = (s) => libraryQuery(new URL(`https://llmentzero.com/skills${s}`));
-    expect(q("?tier=nope&sort=weird&page=-3")).toEqual({ q: "", tier: "", sort: "title", page: 1 });
+    expect(q("?tier=nope&sort=weird&page=-3&category=nope&tag=Not%20OK")).toEqual({ q: "", tier: "", category: "", tag: "", sort: "title", page: 1 });
+    expect(q("?sort=relevance").sort).toBe("title"); // best match only applies to a search
+    expect(q("?q=x").sort).toBe("relevance");
+    expect(q("?tier=basic&category=WRITING&tag=Meetings")).toMatchObject({ tier: "Basic", category: "writing", tag: "meetings" });
     expect(q(`?q=${"a".repeat(200)}`).q).toHaveLength(80);
   });
   it("pages through hundreds of skills", async () => {

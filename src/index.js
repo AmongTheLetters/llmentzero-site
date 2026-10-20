@@ -3,7 +3,8 @@
 // assets.run_worker_first reach this fetch handler.
 import { getAccept, getForgot, getMe, getPassword, postPassword, postPasswordCode, postSigninPassword, getSignin, getSignup, getVerify, postAccept, postSignin, postSignout, postSignup, postVerify } from "./auth.js";
 import { getAccount, getData, getDownloads, getEmailPrefs, getLicences, getSecurity, postEmailPrefs, postSignoutAll } from "./account.js";
-import { getCatalogue, getDownload, getSkill, notFound } from "./skills.js";
+import { getDownload, getSkill, notFound } from "./skills.js";
+import { getCatalogue, getLibrary, getSkillsSitemap } from "./library.js";
 import { postPayhip } from "./payhip.js";
 import { getJoin, getTeam, postAssign, postCancelInvite, postCreateTeam, postInvite, postJoin, postLeave, postRemove, getStopInvites, postStopInvites } from "./teams.js";
 import { html, text } from "./lib/http.js";
@@ -45,6 +46,7 @@ const routes = {
   "GET /account/team/stop-invites": getStopInvites,
   "POST /account/team/stop-invites": postStopInvites,
   "GET /skills": getCatalogue,
+  "GET /sitemap-skills.xml": getSkillsSitemap,
   "GET /api/me": getMe,
   "POST /webhooks/payhip": postPayhip,
 };
@@ -62,6 +64,8 @@ export default {
       const handler = routes[`${method} ${path}`];
       if (handler) return await handler(request, env, ctx);
       let m;
+      if (method === "GET" && (m = /^\/skills\/category\/([^/]+)$/.exec(path))) return await getLibrary(request, env, decodeURIComponent(m[1]).toLowerCase());
+      if (method === "GET" && path === "/skills/category") return Response.redirect(new URL("/skills", url).toString(), 301);
       if (method === "GET" && (m = /^\/skills\/([^/]+)$/.exec(path))) return await getSkill(request, env, decodeURIComponent(m[1]));
       if (method === "GET" && (m = /^\/download\/([^/]+)$/.exec(path))) return await getDownload(request, env, decodeURIComponent(m[1]));
       if (Object.keys(routes).some((k) => k.endsWith(` ${path}`))) return text("Method not allowed", 405);

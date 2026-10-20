@@ -37,9 +37,24 @@ User-agent: Amzn-SearchBot
 User-agent: Amzn-User
 User-agent: Meta-ExternalFetcher
 Allow: /
+# Filtered, sorted and searched views of the skill library are not worth crawling (Google's faceted
+# navigation guidance). Plain pages (/skills, /skills?page=2, /skills/category/...) stay open.
+Disallow: /skills*?*q=
+Disallow: /skills*?*tier=
+Disallow: /skills*?*tag=
+Disallow: /skills*?*sort=
+Disallow: /skills*?*category=
 
 # --- Everyone else ---
 User-agent: *
 Allow: /
+# Filtered, sorted and searched views of the skill library are not worth crawling (Google's faceted
+# navigation guidance). Plain pages (/skills, /skills?page=2, /skills/category/...) stay open.
+Disallow: /skills*?*q=
+Disallow: /skills*?*tier=
+Disallow: /skills*?*tag=
+Disallow: /skills*?*sort=
+Disallow: /skills*?*category=
 
 Sitemap: https://llmentzero.com/sitemap.xml
+Sitemap: https://llmentzero.com/sitemap-skills.xml

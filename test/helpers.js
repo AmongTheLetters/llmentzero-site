@@ -69,7 +69,8 @@ export async function seedSkill(slug = "sample-skill", content = "# Sample skill
   const t = Math.floor(Date.now() / 1000);
   await env.DB.batch([
     env.DB.prepare(
-      "INSERT OR REPLACE INTO skills (slug, title, tier, version, summary, filename, sha256, canary_guid, canary_words, published, sort_order, updated_at) VALUES (?, 'Sample skill', 'Basic', '1.0.0', 'A sample.', ?, 'x', '11111111-2222-3333-4444-555555555555', 'tamberosk-AB12,vorquelin-7Q3F', 1, 0, ?)"
+      // Upsert, like scripts/seed-skills.mjs: INSERT OR REPLACE would skip the library's delete triggers (migration 0006).
+      "INSERT INTO skills (slug, title, tier, version, summary, filename, sha256, canary_guid, canary_words, published, sort_order, updated_at) VALUES (?, 'Sample skill', 'Basic', '1.0.0', 'A sample.', ?, 'x', '11111111-2222-3333-4444-555555555555', 'tamberosk-AB12,vorquelin-7Q3F', 1, 0, ?) ON CONFLICT(slug) DO UPDATE SET title = excluded.title, updated_at = excluded.updated_at, published = 1"
     ).bind(slug, `llmentzero-${slug}-v1.0.0.md`, t),
     env.DB.prepare("INSERT OR REPLACE INTO skill_chunks (slug, idx, content) VALUES (?, 0, ?)").bind(slug, content),
   ]);
