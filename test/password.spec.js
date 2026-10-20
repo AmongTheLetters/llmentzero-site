@@ -47,6 +47,10 @@ describe("required password", () => {
     const page = await (await call("/signup")).text();
     expect(page).toContain(">Create a password</label>");
     expect(page).toContain(">Confirm password</label>");
+    expect(page).toContain('<button type="submit" class="btn">Create your account</button>');
+    expect(page).toContain("We&#39;ll email you a 6-digit code to confirm it&#39;s yours.");
+    const signin = await (await call("/signin")).text();
+    expect(signin).toContain('<button type="submit" class="btn">Email me a code</button>');
     expect(page).not.toMatch(/optional\)<\/legend>.*password/i);
     expect(page).toContain('class="pw-toggle" aria-controls="new_password" aria-pressed="false"');
     expect(page).not.toMatch(/onpaste|maxlength/);

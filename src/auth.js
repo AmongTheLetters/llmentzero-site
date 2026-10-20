@@ -40,7 +40,7 @@ ${passwordField(errors, { id: "confirm_password", label: "Confirm password", aut
 ${termsCheckbox(errors, terms)}
 <fieldset class="field"><legend>Email updates (optional)</legend><div class="check"><input id="marketing" name="marketing" type="checkbox" value="yes"${marketing ? " checked" : ""} aria-describedby="marketing-hint"><label for="marketing">Yes, email me about new skills and offers from LlmentZero.</label></div><p class="hint" id="marketing-hint">Optional. You can unsubscribe at any time. We never share your email.</p></fieldset>
 ${turnstileWidget(env, "signup", errors)}
-<button type="submit" class="btn">Email me a code</button>
+<button type="submit" class="btn">Create your account</button>
 </form>
 <p>Already have an account? <a href="/signin${next !== "/account" ? `?next=${encodeURIComponent(next)}` : ""}">Sign in</a></p>`,
   });
