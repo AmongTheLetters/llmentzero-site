@@ -49,10 +49,12 @@ export async function postPayhip(request, env) {
     if (!email || !orderId) return text("Missing email or id", 400);
     let created = 0;
     for (const item of items) {
-      const productId = String(item.product_id || "").slice(0, 64);
+      const productId = String(item.product_id || item.product_key || "").slice(0, 64);
       if (!productId) continue;
-      // If PAYHIP_PRODUCTS is empty, every product is treated as a Business Licence.
-      const type = mapped ? map[productId] : "business";
+      // The store is shared with Among the Letters, so match by Payhip product id, product key
+      // (the code in payhip.com/b/<key>) or exact product name. Empty map = every product counts.
+      const keys = [item.product_id, item.product_key, item.product_name].filter(Boolean).map(String);
+      const type = mapped ? keys.map((k) => map[k]).find(Boolean) : "business";
       if (!type) continue; // not a licence product
       const devices = Math.max(1, Math.min(100000, parseInt(item.quantity, 10) || 1));
       const r = await env.DB.prepare(

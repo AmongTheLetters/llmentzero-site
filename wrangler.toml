@@ -41,10 +41,10 @@ EMAIL_REPLY_TO = "llmentzero@gmail.com"
 TURNSTILE_SITE_KEY = "0x4AAAAAAFY-xUUqJQoVXeUt"
 TURNSTILE_EXPECTED_HOSTNAME = "llmentzero.com"   # comma-separated if more hosts are ever needed
 # Payhip product page for the Business Licence. Empty = buy links point to /tiers until it exists.
-PAYHIP_URL = ""
+PAYHIP_URL = "https://payhip.com/b/wuUFT"
 # JSON map of Payhip product_id -> licence type, e.g. {"2804256":"business","2804257":"deployment"}.
 # Empty {} = every Payhip product counts as a Business Licence.
-PAYHIP_PRODUCTS = "{}"
+PAYHIP_PRODUCTS = '{"wuUFT":"business","LlmentZero Business Licence (per device)":"business"}'
 
 # Secrets (never in this file): npx wrangler secret put <NAME>
 #   RESEND_API_KEY    Resend sending-only key

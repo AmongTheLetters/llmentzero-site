@@ -260,9 +260,17 @@ describe("skills and gated downloads", () => {
       method: "POST",
       noOrigin: true,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: "ORDER1", email: email.toUpperCase(), price: 3000, currency: "USD", type: "paid", date: 1792200000, signature: sig, items: [{ product_id: "123", product_name: "Business Licence", quantity: "3" }] }),
+      body: JSON.stringify({ id: "ORDER1", email: email.toUpperCase(), price: 3000, currency: "USD", type: "paid", date: 1792200000, signature: sig, items: [{ product_id: "123", product_key: "wuUFT", product_name: "LlmentZero Business Licence (per device)", quantity: "3" }] }),
     });
     expect(paid.status).toBe(200);
+    const guide = await call("/webhooks/payhip", {
+      method: "POST",
+      noOrigin: true,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: "ORDERGUIDE", email, price: 999, currency: "CAD", type: "paid", date: 1792200000, signature: sig, items: [{ product_id: "999", product_key: "AbCdE", product_name: "Among The Letters Writer's Guide", quantity: "1" }] }),
+    });
+    expect(guide.status).toBe(200);
+    expect(await env.DB.prepare("SELECT * FROM licences WHERE order_id = 'ORDERGUIDE'").first()).toBeNull();
     const lic = await env.DB.prepare("SELECT * FROM licences WHERE order_id = 'ORDER1'").first();
     expect(lic.email).toBe(email);
     expect(lic.devices).toBe(3);
