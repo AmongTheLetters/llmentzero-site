@@ -277,7 +277,7 @@ describe("skills and gated downloads", () => {
     expect(lic.status).toBe("active");
     body = await (await call("/skills/sample-skill", { headers: { Cookie: cookie } })).text();
     expect(body).not.toContain('id="lz-reminder"');
-    expect(await (await call("/account", { headers: { Cookie: cookie } })).text()).toContain("ORDER1");
+    expect(await (await call("/account/licences", { headers: { Cookie: cookie } })).text()).toContain("ORDER1");
 
     mockOutbound(); // refund notice email
     const refunded = await call("/webhooks/payhip", {
@@ -343,8 +343,8 @@ describe("account button and /api/me", () => {
     const { cookie, email } = await signUp();
     const body = await (await call("/account", { headers: { Cookie: cookie } })).text();
     expect(body).toContain(`data-state="in" data-initial="${email[0].toUpperCase()}" data-email="${email}"`);
-    expect(body).toContain('id="licences"');
-    expect(body).toContain('id="downloads"');
+    expect(body).toContain('href="/account/licences"');
+    expect(body).toContain('href="/account/downloads"');
   });
   it("/api/me reports sign-in state without caching", async () => {
     let res = await call("/api/me");
@@ -356,8 +356,8 @@ describe("account button and /api/me", () => {
   });
   it("records the revised privacy version on acceptance", async () => {
     expect(LEGAL.privacy.version).toBe("LZ-PRIV-2026-10-20.1");
-    expect(LEGAL.terms.version).toBe("LZ-TERMS-2026-10-20.1");
-    expect(LEGAL.licence.version).toBe("LZ-LIC-2026-10-20.1");
+    expect(LEGAL.terms.version).toBe("LZ-TERMS-2026-10-20.2");
+    expect(LEGAL.licence.version).toBe("LZ-LIC-2026-10-20.2");
     const { email } = await signUp();
     expect(await env.DB.prepare("SELECT privacy_version FROM terms_acceptances WHERE email = ?").bind(email).first("privacy_version")).toBe("LZ-PRIV-2026-10-20.1");
   });

@@ -8,7 +8,7 @@
 // - A refund of an order ends every device from it, including assigned ones, because each
 //   assignment is taken from a specific licence row (see migrations/0003_teams.sql).
 import { html, redirect, readForm, sameOrigin } from "./lib/http.js";
-import { buyUrl, errorSummary, fieldError, layout } from "./lib/views.js";
+import { breadcrumb, buyUrl, errorSummary, fieldError, layout } from "./lib/views.js";
 import { EmailError, sendEmail, teamInviteEmail } from "./lib/email.js";
 import { hit } from "./lib/ratelimit.js";
 import { acceptedCurrentTerms, getSession } from "./lib/session.js";
@@ -207,7 +207,7 @@ async function teamPage(env, user, { cookies = [], errors = {}, values = {}, not
   const title = team ? "Your team" : "Teams";
   return page(
     title,
-    `${errorSummary(errors)}${notice ? `<p class="notice-ok" role="status">${esc(notice)}</p>` : ""}<p class="eyebrow">Account</p><h1>${title}</h1>${body}<p><a href="/account">Back to your account</a></p>`,
+    `${breadcrumb([["/account", "Account"], [null, "Team"]])}${errorSummary(errors)}${notice ? `<p class="notice-ok" role="status">${esc(notice)}</p>` : ""}<h1>${title}</h1>${body}`,
     user,
     { status, cookies, error: hasErr }
   );

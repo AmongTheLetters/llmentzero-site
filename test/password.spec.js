@@ -68,7 +68,7 @@ describe("required password", () => {
     expect(row.password_hash).toMatch(/^pbkdf2-sha256\$/);
     const leftovers = await env.DB.prepare("SELECT COUNT(*) n FROM login_codes WHERE email = ? AND pending_password_hash IS NOT NULL").bind(email).first();
     expect(leftovers.n).toBe(0);
-    const acct = await (await call("/account", { headers: { Cookie: cookie } })).text();
+    const acct = await (await call("/account/security", { headers: { Cookie: cookie } })).text();
     expect(acct).toContain('href="/account/password">Change password');
     expect(acct).not.toMatch(/Remove password|password\/remove/);
     expect((await call("/account/password/remove", { headers: { Cookie: cookie } })).status).toBe(404);

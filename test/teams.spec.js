@@ -81,7 +81,8 @@ describe("team dashboard access", () => {
     const { cookie } = await signUp();
     const body = await (await get("/account", cookie)).text();
     expect(body).toContain('href="/account/team"');
-    expect(body).toContain("Create a team");
+    expect(body).toContain("Not on a team");
+    expect(await (await get("/account/team", cookie)).text()).toContain("Create a team");
   });
 });
 
@@ -94,7 +95,7 @@ describe("creating a team", () => {
     const body = await (await get("/account/team", owner.cookie)).text();
     expect(body).toContain("O&#39;Brien &amp; Sons");
     expect(body).not.toContain("O'Brien & Sons");
-    expect(await (await get("/account", owner.cookie)).text()).toContain("You own the team <strong>O&#39;Brien &amp; Sons</strong>");
+    expect(await (await get("/account", owner.cookie)).text()).toContain("Owner of O&#39;Brien &amp; Sons");
     expect(await env.DB.prepare("SELECT COUNT(*) AS n FROM audit_log WHERE event = 'team.created' AND user_id = ?").bind(await userId(owner.email)).first("n")).toBe(1);
   });
 
@@ -234,7 +235,7 @@ describe("assigning devices", () => {
     const pool = await env.DB.prepare("SELECT SUM(devices) AS total, SUM(assigned_devices) AS assigned FROM licences WHERE email = ?").bind(owner.email).first();
     expect(pool).toEqual({ total: 3, assigned: 2 });
     expect(await reminderShown(member.cookie)).toBe(false);
-    expect(await (await get("/account", member.cookie)).text()).toContain("Licensed through Acme &amp; Co.:</strong> 2 devices");
+    expect(await (await get("/account/licences", member.cookie)).text()).toContain("Licensed through Acme &amp; Co.:</strong> 2 devices");
     expect(await env.DB.prepare("SELECT COUNT(*) AS n FROM audit_log WHERE event = 'team.assigned'").first("n")).toBeGreaterThan(0);
 
     // The owner can assign to themselves too.
@@ -319,7 +320,7 @@ describe("assignments are permanent", () => {
     expect(await assignedTo(memberId)).toBe(2);
     expect(await env.DB.prepare("SELECT SUM(assigned_devices) AS n FROM licences WHERE email = ?").bind(owner.email).first("n")).toBe(2);
     expect(await reminderShown(member.cookie)).toBe(false);
-    const acct = await (await get("/account", member.cookie)).text();
+    const acct = await (await get("/account/licences", member.cookie)).text();
     expect(acct).toContain("2 devices assigned to your account. They stay with your account permanently.");
     expect(acct).not.toContain("Licensed through");
     const dash = await (await get("/account/team", owner.cookie)).text();
@@ -359,7 +360,7 @@ describe("refunds", () => {
     expect((await refund(owner.email, a)).status).toBe(200);
     expect(await assignedTo(memberId)).toBe(1);
     expect(await reminderShown(member.cookie)).toBe(false);
-    expect(await (await get("/account", member.cookie)).text()).toContain("2 devices that had been assigned to you ended because the order they came from was refunded.");
+    expect(await (await get("/account/licences", member.cookie)).text()).toContain("2 devices that had been assigned to you ended because the order they came from was refunded.");
 
     expect((await refund(owner.email, b)).status).toBe(200);
     expect(await assignedTo(memberId)).toBe(0);

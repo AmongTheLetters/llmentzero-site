@@ -42,8 +42,9 @@ The site can run on **Cloudflare Workers with static assets** (Free plan only: n
 | `/signup`, `/signin`, `/verify` | Passwordless sign-in: email + Turnstile → 6-digit code by email (Resend) → session |
 | `/signin?method=password`, `/signin/password`, `/forgot-password` | Password sign-in (email + password + Turnstile); email code stays the default. Same error for wrong password, no password or no account. "Forgot password" is the email-code flow with `next=/account/password` |
 | `/account/password`, `/account/password/code` | Create (accounts made before passwords) or change the password. Changing needs the current password or a sign-in by email code in the last 15 minutes. Every change signs out all sessions and emails a notice |
-| `/account`, `/account/accept`, `/signout` | Account page (licences, downloads, terms record), re-accept changed terms, sign out |
-| `/skills`, `/skills/<slug>` | Skill catalogue and pages, with the "When you need a licence" notice and the friendly reminder |
+| `/account`, `/account/accept`, `/signout` | Account hub (one short summary per area), re-accept changed terms, sign out |
+| `/account/licences`, `/account/team`, `/account/downloads`, `/account/security`, `/account/email`, `/account/data` | One page per area: licences and devices, team, download history, password and "sign out everywhere", email updates on/off (CASL consent time recorded), terms record and data requests |
+| `/skills`, `/skills/<slug>` | Skill library (search, tier filter, sort, 50 per page; works without JavaScript) and skill pages, with the "When you need a licence" notice and the friendly reminder |
 | `/download/<slug>` | Signed-in only. Streams the skill file from D1 with the licence line and hidden canary added |
 | `/webhooks/payhip` | Payhip `paid` / `refunded` events → licences, matched to accounts by email. Any refund, full or partial, ends the licence |
 

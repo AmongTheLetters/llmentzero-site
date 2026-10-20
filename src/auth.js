@@ -1,6 +1,6 @@
 // Passwordless sign-up / sign-in with emailed 6-digit codes, clickwrap acceptance and account pages.
 import { html, redirect, readForm, sameOrigin } from "./lib/http.js";
-import { CHECKBOX_LABEL, NEW_PASSWORD_HINT, emailField, errorSummary, fieldError, layout, passwordField, termsCheckbox, turnstileWidget } from "./lib/views.js";
+import { CHECKBOX_LABEL, NEW_PASSWORD_HINT, breadcrumb, emailField, errorSummary, fieldError, layout, passwordField, termsCheckbox, turnstileWidget } from "./lib/views.js";
 import { EmailError, codeEmail, noAccountEmail, passwordChangedEmail, sendEmail } from "./lib/email.js";
 import { verifyTurnstile } from "./lib/turnstile.js";
 import { LIMITS, PASSWORD_LIMITS, hit, peek } from "./lib/ratelimit.js";
@@ -8,7 +8,6 @@ import { PENDING_COOKIE, acceptedCurrentTerms, createSession, destroyAllSessions
 import { checkNewPassword, dummyVerify, hashPassword, normalise, verifyPassword } from "./lib/password.js";
 import { cookie, esc, ipHash, isValidEmail, normaliseEmail, now, parseCookies, randomId, safeNext, sha256Hex, sixDigitCode, userAgent, emailKey } from "./lib/util.js";
 import { LEGAL } from "./generated/legal.js";
-import { assignedToUser } from "./lib/licences.js";
 
 const CODE_TTL = 600;
 
@@ -225,7 +224,7 @@ function passwordPage(user, { errors = {}, fresh = false, codeSent = false, next
     title: errors && Object.keys(errors).length ? `Error: ${title}` : title,
     user,
     passwords: true,
-    body: `${errorSummary(errors)}<p class="eyebrow">Account</p><h1>${title}</h1>
+    body: `${changing ? breadcrumb([["/account", "Account"], ["/account/security", "Sign-in and security"], [null, "Change password"]]) : ""}${errorSummary(errors)}<h1>${title}</h1>
 ${changing ? "" : `<p>Every LlmentZero account now needs a password. Choose one to continue. You can still sign in with an email code whenever you like.</p>`}
 ${codeSent ? `<p class="notice-ok" role="status">We've emailed you a 6-digit code. Enter it on the next page, then come back here to choose your new password.</p>` : ""}
 <form method="post" action="/account/password" novalidate class="stack">
@@ -237,7 +236,7 @@ ${passwordField(errors, { id: "confirm_password", label: changing ? "Confirm new
 <button type="submit" class="btn">${changing ? "Change password" : "Save password"}</button>
 </form>
 ${needCurrent ? codeInsteadForm("/account/password") : ""}
-${changing ? `<p><a href="/account">Back to your account</a></p>` : `<form method="post" action="/signout"><p>Not now? <button type="submit" class="linklike">Sign out</button></p></form>`}`,
+${changing ? "" : `<form method="post" action="/signout"><p>Not now? <button type="submit" class="linklike">Sign out</button></p></form>`}`,
   });
 }
 
@@ -492,63 +491,6 @@ export async function postAccept(request, env) {
 
 // ---------- Account ----------
 export const fmtDate = (s) => new Date(s * 1000).toLocaleDateString("en-CA", { year: "numeric", month: "long", day: "numeric", timeZone: "America/Toronto" });
-
-export async function getAccount(request, env) {
-  const { user, cookies } = await getSession(env, request);
-  if (!user) return redirect("/signin?next=/account");
-  if (!user.hasPassword) return redirect("/account/password");
-  if (!(await acceptedCurrentTerms(env, user.id))) return redirect("/account/accept?next=/account");
-  const pwFlag = new URL(request.url).searchParams.get("password");
-  const pwNotice = pwFlag === "changed" ? "Your password has been changed. Other browsers have been signed out." : pwFlag === "set" ? "Your password is saved. You can sign in with it or with an email code." : "";
-  const [lic, acc, dls, team, assigned] = await Promise.all([
-    env.DB.prepare("SELECT product_name, licence_type, devices, assigned_devices, status, order_id, purchased_at FROM licences WHERE email = ? ORDER BY purchased_at DESC").bind(user.email).all(),
-    env.DB.prepare("SELECT terms_version, licence_version, accepted_at FROM terms_acceptances WHERE user_id = ? ORDER BY accepted_at DESC LIMIT 1").bind(user.id).first(),
-    env.DB.prepare("SELECT d.slug, d.version, d.downloaded_at, s.title FROM downloads d LEFT JOIN skills s ON s.slug = d.slug WHERE d.user_id = ? ORDER BY d.downloaded_at DESC LIMIT 10").bind(user.id).all(),
-    env.DB.prepare("SELECT t.id, t.name, m.role FROM team_members m JOIN teams t ON t.id = m.team_id WHERE m.user_id = ?").bind(user.id).first(),
-    assignedToUser(env, user.id),
-  ]);
-  const statusText = { active: "Active", refunded: "Refunded (licence ended)", revoked: "Revoked" };
-  const assignedRows = assigned || [];
-  const sumWhere = (fn) => assignedRows.filter(fn).reduce((n, r) => n + Number(r.devices || 0), 0);
-  const fromTeam = team ? sumWhere((r) => r.team_id === team.id && r.status === "active") : 0;
-  const kept = sumWhere((r) => (!team || r.team_id !== team.id) && r.status === "active");
-  const ended = sumWhere((r) => r.status !== "active");
-  const dev = (n) => `${n} device${n === 1 ? "" : "s"}`;
-  const assignedText = [
-    fromTeam ? `<p><strong>Licensed through ${esc(team.name)}:</strong> ${dev(fromTeam)} assigned to your account.</p>` : "",
-    kept ? `<p>${dev(kept)} assigned to your account${team ? " by another team" : ""}. ${kept === 1 ? "It stays" : "They stay"} with your account permanently.</p>` : "",
-    ended ? `<p>${dev(ended)} that had been assigned to you ended because the order ${ended === 1 ? "it" : "they"} came from was refunded.</p>` : "",
-  ].join("");
-  const teamText = team
-    ? team.role === "owner"
-      ? `<p>You own the team <strong>${esc(team.name)}</strong>${/[.!]$/.test(team.name) ? "" : "."}</p><p><a href="/account/team">Manage your team</a></p>`
-      : `<p>You're a member of <strong>${esc(team.name)}</strong>${/[.!]$/.test(team.name) ? "" : "."}${fromTeam ? "" : " No devices have been assigned to you yet."}</p><p><a href="/account/team">Go to your team page</a></p>`
-    : `<p>You're not on a team. A team lets one account buy Business Licence devices and share them with the people who work with it.</p><p><a href="/account/team">Create a team</a></p>`;
-  const licences = lic.results || [];
-  const licRows = licences.length
-    ? `<table><caption class="visually-hidden">Your licences</caption><thead><tr><th scope="col">Product</th><th scope="col">Devices</th><th scope="col">Status</th><th scope="col">Order</th><th scope="col">Bought</th></tr></thead><tbody>${licences
-        .map((l) => `<tr><td>${esc(l.product_name || l.licence_type)}</td><td>${esc(l.devices)}${l.assigned_devices ? ` (${esc(l.assigned_devices)} assigned to team members)` : ""}</td><td>${esc(statusText[l.status] || l.status)}</td><td><code>${esc(l.order_id)}</code></td><td>${fmtDate(l.purchased_at)}</td></tr>`)
-        .join("")}</tbody></table>`
-    : assignedRows.length ? "" : `<p>No licence linked yet. Personal use is free. If you use LlmentZero for work, see <a href="/licence">when you need a licence</a>.</p><p>Bought one already? Licences link automatically when you buy with this account's email address. If you used a different email, email <a href="mailto:llmentzero@gmail.com">llmentzero@gmail.com</a> with your Payhip order ID and we'll link it.</p>`;
-  const dlRows = (dls.results || []).length
-    ? `<ul>${dls.results.map((d) => `<li>${esc(d.title || d.slug)} (version ${esc(d.version)}), ${fmtDate(d.downloaded_at)}</li>`).join("")}</ul>`
-    : `<p>No downloads yet. <a href="/skills">Browse the skills</a>.</p>`;
-  return html(
-    layout({
-      title: "Your account",
-      user,
-      body: `${pwNotice ? `<p class="notice-ok" role="status">${esc(pwNotice)}</p>` : ""}<p class="eyebrow">Account</p><h1>Your account</h1>
-<dl class="facts"><div><dt>Email</dt><dd>${esc(user.email)}</dd></div><div><dt>Member since</dt><dd>${fmtDate(user.createdAt)}</dd></div><div><dt>Email updates</dt><dd>${user.marketingConsent ? "Yes" : "No"}</dd></div>${acc ? `<div><dt>Terms agreed</dt><dd>${esc(acc.terms_version)} and ${esc(acc.licence_version)}, on ${fmtDate(acc.accepted_at)}</dd></div>` : ""}</dl>
-<h2 class="h3" id="password">Password</h2><p>You can sign in with your password or an email code.${user.passwordChangedAt ? ` Password last changed on ${fmtDate(user.passwordChangedAt)}.` : ""}</p><p><a href="/account/password">Change password</a></p>
-<h2 class="h3" id="licences">Licences</h2>${assignedText}${licRows}
-<h2 class="h3" id="team">Team</h2>${teamText}
-<h2 class="h3" id="downloads">Recent downloads</h2>${dlRows}
-<h2 class="h3">Your data</h2><p>To get a copy of your data, change your email, stop email updates or close your account, email <a href="mailto:llmentzero@gmail.com">llmentzero@gmail.com</a>. See the <a href="/privacy">Privacy Policy</a>.</p>
-<form method="post" action="/signout"><button type="submit" class="btn ghost">Sign out</button></form>`,
-    }),
-    { cookies }
-  );
-}
 
 export async function getMe(request, env) {
   const { user, cookies } = await getSession(env, request);

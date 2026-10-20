@@ -1,6 +1,6 @@
 // Skill catalogue, skill pages and gated downloads. Files live in D1 (no R2).
 import { html, redirect, securityHeaders, text } from "./lib/http.js";
-import { buyUrl, layout, licenceNotice, reminderMount } from "./lib/views.js";
+import { breadcrumb, buyUrl, layout, licenceNotice, reminderMount } from "./lib/views.js";
 import { acceptedCurrentTerms, getSession } from "./lib/session.js";
 import { hasActiveBusinessLicence } from "./lib/licences.js";
 import { LIMITS, hit } from "./lib/ratelimit.js";
@@ -15,23 +15,106 @@ async function viewer(env, request) {
   return { user, cookies, showReminder: !!user && !licensed };
 }
 
+export const TIERS = ["Basic", "Compound", "General", "Specialist", "Expert", "Complete"];
+export const PAGE_SIZE = 50;
+const SORTS = { title: "title COLLATE NOCASE, slug", newest: "updated_at DESC, title COLLATE NOCASE" };
+
+/** Reads and cleans the library's query string. Unknown values fall back to the defaults. */
+export function libraryQuery(url) {
+  const p = url.searchParams;
+  const q = (p.get("q") || "").replace(/\s+/g, " ").trim().slice(0, 80);
+  const tier = TIERS.find((t) => t.toLowerCase() === (p.get("tier") || "").toLowerCase()) || "";
+  const sort = p.get("sort") === "newest" ? "newest" : "title";
+  const page = Math.min(Math.max(parseInt(p.get("page"), 10) || 1, 1), 10000);
+  return { q, tier, sort, page };
+}
+
+function libraryHref({ q, tier, sort, page }) {
+  const p = new URLSearchParams();
+  if (q) p.set("q", q);
+  if (tier) p.set("tier", tier);
+  if (sort !== "title") p.set("sort", sort);
+  if (page > 1) p.set("page", String(page));
+  const s = p.toString();
+  return `/skills${s ? `?${s}` : ""}`;
+}
+
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+
 export async function getCatalogue(request, env) {
   const { user, cookies, showReminder } = await viewer(env, request);
-  const { results = [] } = await env.DB.prepare("SELECT slug, title, tier, version, summary FROM skills WHERE published = 1 ORDER BY sort_order, title").all();
-  const cards = results.length
-    ? `<div class="grid">${results.map((s) => `<article class="card"><span class="tag">${esc(s.tier)}</span><h2 class="h3"><a href="/skills/${esc(s.slug)}">${esc(s.title)}</a></h2><p>${esc(s.summary)}</p></article>`).join("")}</div>`
-    : `<p>Skill files are on their way. Check back soon, or try the <a href="/demos">free demos</a>.</p>`;
+  const query = libraryQuery(new URL(request.url));
+  const { q, tier, sort } = query;
+  const where = ["published = 1"];
+  const args = [];
+  if (q) {
+    const like = `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+    where.push("(title LIKE ? ESCAPE '\\' OR summary LIKE ? ESCAPE '\\')");
+    args.push(like, like);
+  }
+  const tierWhere = tier ? " AND tier = ?" : "";
+  const [counts, matched] = await Promise.all([
+    env.DB.prepare(`SELECT tier, COUNT(*) AS n FROM skills WHERE ${where.join(" AND ")} GROUP BY tier`).bind(...args).all(),
+    env.DB.prepare(`SELECT COUNT(*) AS n FROM skills WHERE published = 1`).first(),
+  ]);
+  const byTier = Object.fromEntries((counts.results || []).map((r) => [r.tier, Number(r.n)]));
+  const total = Number(matched?.n || 0);
+  const found = tier ? byTier[tier] || 0 : Object.values(byTier).reduce((a, b) => a + b, 0);
+  const pages = Math.max(1, Math.ceil(found / PAGE_SIZE));
+  const page = Math.min(query.page, pages);
+  const { results = [] } = await env.DB.prepare(
+    `SELECT slug, title, tier, version, summary FROM skills WHERE ${where.join(" AND ")}${tierWhere} ORDER BY ${SORTS[sort]} LIMIT ? OFFSET ?`
+  ).bind(...args, ...(tier ? [tier] : []), PAGE_SIZE, (page - 1) * PAGE_SIZE).all();
+
+  const filtered = !!(q || tier);
+  const tierOptions = [`<option value="">All tiers</option>`]
+    .concat(TIERS.filter((t) => byTier[t] || t === tier).map((t) => `<option value="${t}"${t === tier ? " selected" : ""}>${t} (${byTier[t] || 0})</option>`))
+    .join("");
+  const form = `<form class="lib-filters" method="get" action="/skills" role="search" aria-label="Skills">
+<div class="lib-field lib-q"><label for="q">Search</label><input id="q" name="q" type="search" value="${esc(q)}" maxlength="80" autocomplete="off" spellcheck="false"></div>
+<div class="lib-field"><label for="tier">Tier</label><select id="tier" name="tier">${tierOptions}</select></div>
+<div class="lib-field"><label for="sort">Sort</label><select id="sort" name="sort"><option value="title"${sort === "title" ? " selected" : ""}>Title A–Z</option><option value="newest"${sort === "newest" ? " selected" : ""}>Newest</option></select></div>
+<button type="submit" class="btn">Apply</button></form>`;
+
+  const quoted = q ? `“${q}”` : "";
+  let heading; // plain text; escaped where it is used
+  if (!total) heading = "No skills yet";
+  else if (!filtered) heading = plural(total, "skill", "skills");
+  else if (!found) heading = q ? `No skills match ${quoted}${tier ? ` in ${tier}` : ""}` : `No ${tier} skills yet`;
+  else {
+    const verb = q ? (found === 1 ? "matches" : "match") : found === 1 ? "is" : "are";
+    heading = `${found} of ${plural(total, "skill", "skills")} ${verb} ${q ? `${quoted}${tier ? ` in ${tier}` : ""}` : tier}`;
+  }
+  const clear = filtered ? `<p class="lib-clear"><a href="${esc(libraryHref({ q: "", tier: "", sort, page: 1 }))}">Clear search and filters</a></p>` : "";
+  const range = found > PAGE_SIZE ? `<p class="small">Showing ${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, found)}.</p>` : "";
+  const rows = results.length
+    ? `<ol class="lib">${results
+        .map(
+          (s) =>
+            `<li class="lib-row"><h3 class="lib-title"><a href="/skills/${esc(s.slug)}">${esc(s.title)}</a></h3><p class="lib-meta"><span class="tag">${esc(s.tier)}</span><span class="lib-ver">v${esc(s.version)}</span></p><p class="lib-sum">${esc(s.summary)}</p></li>`
+        )
+        .join("")}</ol>`
+    : total
+      ? `<p>Try a different word or tier.</p>`
+      : `<p>Skill files are on their way. Check back soon.</p>`;
+  const pager =
+    pages > 1
+      ? `<nav class="pager" aria-label="Pages">${page > 1 ? `<a href="${esc(libraryHref({ ...query, page: page - 1 }))}" rel="prev">Previous<span class="visually-hidden"> page</span></a>` : ""}<span>Page ${page} of ${pages}</span>${page < pages ? `<a href="${esc(libraryHref({ ...query, page: page + 1 }))}" rel="next">Next<span class="visually-hidden"> page</span></a>` : ""}</nav>`
+      : "";
+  const intro = `<p class="lib-intro">Free for personal use. Work use needs a <a href="/tiers#licence">Business Licence</a>, which covers every skill.${user ? "" : ` <a href="/signin?next=/skills">Sign in</a> or <a href="/signup?next=/skills">create a free account</a> to download.`}</p>`;
   return html(
     layout({
-      title: "Skills",
-      description: "Download LlmentZero skill files. Free for personal use; businesses need a licence.",
-      noindex: false,
+      title: filtered || page > 1 ? `Skills: ${heading}${page > 1 ? `, page ${page}` : ""}` : "Skills",
+      description: "Browse and download LlmentZero skill files. Free for personal use; work use needs a Business Licence.",
+      noindex: filtered || page > 1,
       canonical: "https://llmentzero.com/skills",
       user,
       reminder: showReminder,
-      body: `${showReminder ? reminderMount(env) : ""}<p class="eyebrow">Library</p><h1>Skills</h1><p class="lead">Free for personal use. ${user ? "" : `<a href="/signin?next=/skills">Sign in</a> or <a href="/signup?next=/skills">create a free account</a> to download.`}</p>${licenceNotice(env)}${cards}`,
+      current: "/skills",
+      wide: true,
+      body: `${showReminder ? reminderMount(env) : ""}<h1>Skills</h1>${intro}${total ? form : ""}<h2 class="h3 lib-count" id="results">${esc(heading)}</h2>${clear}${range}${rows}${pager}`,
     }),
-    { noindex: false, cookies }
+    { noindex: filtered || page > 1, cookies }
   );
 }
 
@@ -60,7 +143,8 @@ export async function getSkill(request, env, slug) {
       canonical: `https://llmentzero.com/skills/${skill.slug}`,
       user,
       reminder: showReminder,
-      body: `${showReminder ? reminderMount(env) : ""}<p class="eyebrow">${esc(skill.tier)} skill · version ${esc(skill.version)}</p><h1>${esc(skill.title)}</h1><p class="lead">${esc(skill.summary)}</p>${licenceNotice(env)}${dl}<p class="small">Markdown file. Document ID: LZ-SKILL-${esc(skill.slug.toUpperCase())}-${esc(skill.version)}</p>${pageCanary(skill)}`,
+      current: "/skills",
+      body: `${breadcrumb([["/skills", "Skills"], [null, skill.title]])}${showReminder ? reminderMount(env) : ""}<p class="eyebrow">${esc(skill.tier)} skill · version ${esc(skill.version)}</p><h1>${esc(skill.title)}</h1><p class="lead">${esc(skill.summary)}</p>${user && !showReminder ? `<p class="notice-ok">Your account has an active Business Licence.</p>` : ""}${licenceNotice(env)}${dl}<p class="small">Markdown file. Document ID: LZ-SKILL-${esc(skill.slug.toUpperCase())}-${esc(skill.version)}</p>${pageCanary(skill)}`,
     }),
     { noindex: false, cookies }
   );

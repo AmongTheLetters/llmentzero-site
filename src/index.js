@@ -1,7 +1,8 @@
 // LlmentZero Worker. Static pages are served straight from dist/ by Workers static assets
 // (free, unlimited, never touch this code). Only the paths in wrangler.toml's
 // assets.run_worker_first reach this fetch handler.
-import { getAccept, getAccount, getForgot, getMe, getPassword, postPassword, postPasswordCode, postSigninPassword, getSignin, getSignup, getVerify, postAccept, postSignin, postSignout, postSignup, postVerify } from "./auth.js";
+import { getAccept, getForgot, getMe, getPassword, postPassword, postPasswordCode, postSigninPassword, getSignin, getSignup, getVerify, postAccept, postSignin, postSignout, postSignup, postVerify } from "./auth.js";
+import { getAccount, getData, getDownloads, getEmailPrefs, getLicences, getSecurity, postEmailPrefs, postSignoutAll } from "./account.js";
 import { getCatalogue, getDownload, getSkill, notFound } from "./skills.js";
 import { postPayhip } from "./payhip.js";
 import { getJoin, getTeam, postAssign, postCancelInvite, postCreateTeam, postInvite, postJoin, postLeave, postRemove, getStopInvites, postStopInvites } from "./teams.js";
@@ -22,6 +23,13 @@ const routes = {
   "GET /verify": getVerify,
   "POST /verify": postVerify,
   "GET /account": getAccount,
+  "GET /account/licences": getLicences,
+  "GET /account/downloads": getDownloads,
+  "GET /account/security": getSecurity,
+  "POST /account/security/signout-all": postSignoutAll,
+  "GET /account/email": getEmailPrefs,
+  "POST /account/email": postEmailPrefs,
+  "GET /account/data": getData,
   "GET /account/accept": getAccept,
   "POST /account/accept": postAccept,
   "POST /signout": postSignout,

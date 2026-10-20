@@ -6,7 +6,7 @@ h1,h2{font-family:'Monoton','Saira Stencil One',sans-serif;font-weight:400;lette
 h1{font-size:clamp(2.25rem,6vw,4rem)}h2{font-size:clamp(2rem,3.6vw,2.6rem);color:var(--brass)}
 h3{font-family:'Saira Stencil One',sans-serif;font-weight:400;letter-spacing:.04em;font-size:1.3rem;line-height:1.3}
 .eyebrow,.card .tag{font-family:'Michroma',sans-serif;color:var(--teal);text-transform:uppercase;letter-spacing:.14em;font-size:.78rem;margin:0 0 .4rem}
-code,kbd,pre,.ph,ol.steps li::before{font-family:'Share Tech Mono',monospace}
+code,kbd,pre,ol.steps li::before{font-family:'Share Tech Mono',monospace}
 a{color:var(--teal)}a:hover{color:var(--brass)}
 :focus-visible{outline:3px solid var(--brass);outline-offset:3px}
 .skip{position:absolute;left:-999px}.skip:focus{left:1rem;top:1rem;background:var(--gold);color:var(--ink);padding:.5rem 1rem;z-index:9}
@@ -31,7 +31,6 @@ section{padding:3.5rem 0}
 .grid{display:grid;gap:1.2rem;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
 .card{background:var(--navy);border:1px solid var(--line);border-top:3px solid var(--gold);padding:1.4rem;position:relative}
 .card h3{margin-top:0;color:var(--ivory)}
-.ph{border:1px dashed var(--brass);color:var(--brass);padding:.15rem .5rem;font-size:.9rem;display:inline-block}
 ol.steps{counter-reset:s;list-style:none;padding:0}ol.steps li{counter-increment:s;padding:1rem 1rem 1rem 4rem;position:relative;border-left:1px solid var(--line);margin-bottom:.6rem}
 ol.steps li::before{content:counter(s,decimal-leading-zero);position:absolute;left:.8rem;top:.9rem;font-size:1.4rem;color:var(--gold)}
 footer{border-top:1px solid var(--line);color:var(--mist);font-size:.9rem;padding:2rem 0}
@@ -113,7 +112,7 @@ header .nav{margin-left:auto}
 .acct-icon{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
 .acct-btn.is-in{background:var(--gold);color:var(--ink)}
 .acct-initial{font-family:'Michroma',sans-serif;font-size:1.05rem;line-height:1}
-.acct-menu{position:absolute;right:0;top:calc(100% + .5rem);min-width:14rem;max-width:min(20rem,calc(100vw - 2rem));background:var(--navy);border:1px solid var(--gold);box-shadow:0 12px 30px rgba(0,0,0,.5);padding:.4rem 0;z-index:30}
+.acct-menu{position:absolute;right:0;top:calc(100% + .5rem);min-width:16rem;max-width:min(20rem,calc(100vw - 2rem));background:var(--navy);border:1px solid var(--gold);box-shadow:0 12px 30px rgba(0,0,0,.5);padding:.4rem 0;z-index:30}
 .acct-menu[hidden]{display:none}
 .acct-menu ul{list-style:none;margin:0;padding:0;display:block}
 .acct-menu a,.acct-menu .acct-signout{display:block;width:100%;text-align:left;padding:.7rem 1.1rem;color:var(--ivory);text-decoration:none;background:none;border:0;border-left:3px solid transparent;font:1rem 'Saira Stencil One',sans-serif;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;min-height:44px}
@@ -126,3 +125,10 @@ header .nav{margin-left:auto}
 /* Small screens: make room for the account button without horizontal scrolling (also fixes a 9px overflow at 320px) */
 @media (max-width:420px){header .wrap{gap:.5rem;padding-inline:.75rem}.brand img{height:40px}.nav-toggle{padding:.45rem .6rem}}
 @media (max-width:360px){.nav-toggle .nav-label{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}.nav-toggle{gap:0;min-width:44px;justify-content:center}}
+/* Tiers: single licence panel; demos list */
+.licence-panel{background:var(--navy);border:1px solid var(--gold);padding:1.4rem 1.6rem;margin:2rem 0 2.5rem;max-width:46rem}
+.licence-panel h2{margin:0 0 .4rem}.licence-panel .price{font-size:1.2rem;color:var(--brass);margin:.2rem 0 .6rem}.licence-panel .btn{margin-left:0;margin-right:.8rem}
+.demo-list{list-style:none;padding:0;margin:.5rem 0 1.5rem}.demo-list li{padding:.55rem 0;border-bottom:1px solid var(--line);display:flex;gap:.8rem;align-items:center;flex-wrap:wrap}
+.demo-list .tag{font-family:'Michroma',sans-serif;color:var(--teal);text-transform:uppercase;letter-spacing:.12em;font-size:.72rem;border:1px solid var(--line);padding:.1rem .45rem}
+.grid.three{grid-template-columns:repeat(auto-fit,minmax(min(100%,17rem),1fr))}
+.demo-list{max-width:40rem}
