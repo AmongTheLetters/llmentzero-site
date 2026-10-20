@@ -4,8 +4,8 @@ main = "src/index.js"
 compatibility_date = "2026-10-01"
 # account_id = "PUT_ACCOUNT_ID_HERE"   # optional; or set CLOUDFLARE_ACCOUNT_ID
 
-# Keep the *.workers.dev address on for testing before the domain moves; previews off.
-workers_dev = true
+# The site lives on llmentzero.com; the *.workers.dev address is off (Oct 19, 2026). Previews off.
+workers_dev = false
 preview_urls = false
 
 # llmentzero.com is served by this Worker as a Custom Domain (Cloudflare creates the DNS record and certificate).
@@ -39,7 +39,7 @@ migrations_dir = "migrations"
 EMAIL_FROM = "LlmentZero <no-reply@mail.llmentzero.com>"
 EMAIL_REPLY_TO = "llmentzero@gmail.com"
 TURNSTILE_SITE_KEY = "0x4AAAAAAFY-xUUqJQoVXeUt"
-TURNSTILE_EXPECTED_HOSTNAME = "llmentzero.com,llmentzero.llmentzero.workers.dev"   # comma-separated; drop the workers.dev host after the domain move
+TURNSTILE_EXPECTED_HOSTNAME = "llmentzero.com"   # comma-separated if more hosts are ever needed
 # Payhip product page for the Business Licence. Empty = buy links point to /tiers until it exists.
 PAYHIP_URL = ""
 # JSON map of Payhip product_id -> licence type, e.g. {"2804256":"business","2804257":"deployment"}.
