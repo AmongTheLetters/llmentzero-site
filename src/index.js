@@ -4,7 +4,7 @@
 import { getAccept, getAccount, getForgot, getMe, getPassword, postPassword, postPasswordCode, postSigninPassword, getSignin, getSignup, getVerify, postAccept, postSignin, postSignout, postSignup, postVerify } from "./auth.js";
 import { getCatalogue, getDownload, getSkill, notFound } from "./skills.js";
 import { postPayhip } from "./payhip.js";
-import { getJoin, getTeam, postAssign, postCancelInvite, postCreateTeam, postInvite, postJoin, postLeave, postRemove } from "./teams.js";
+import { getJoin, getTeam, postAssign, postCancelInvite, postCreateTeam, postInvite, postJoin, postLeave, postRemove, getStopInvites, postStopInvites } from "./teams.js";
 import { html, text } from "./lib/http.js";
 import { layout } from "./lib/views.js";
 import { now } from "./lib/util.js";
@@ -34,6 +34,8 @@ const routes = {
   "POST /account/team/assign": postAssign,
   "POST /account/team/remove": postRemove,
   "POST /account/team/leave": postLeave,
+  "GET /account/team/stop-invites": getStopInvites,
+  "POST /account/team/stop-invites": postStopInvites,
   "GET /skills": getCatalogue,
   "GET /api/me": getMe,
   "POST /webhooks/payhip": postPayhip,
@@ -77,6 +79,8 @@ export default {
       env.DB.prepare("DELETE FROM rate_limits WHERE window_start < ?").bind(t - 2 * day),
       env.DB.prepare("DELETE FROM downloads WHERE downloaded_at < ?").bind(t - 365 * day),
       env.DB.prepare("DELETE FROM audit_log WHERE at < ?").bind(t - 365 * day),
+      // Invites that were never accepted: deleted 30 days after they expired or were cancelled.
+      env.DB.prepare("DELETE FROM team_invites WHERE accepted_at IS NULL AND (expires_at < ?1 OR cancelled_at < ?1)").bind(t - 30 * day),
       env.DB.prepare("DELETE FROM team_invites WHERE created_at < ?").bind(t - 365 * day),
     ]);
   },

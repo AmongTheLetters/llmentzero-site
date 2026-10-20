@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { call, form, mockOutbound, seedSkill, signUp } from "./helpers.js";
+import worker from "../src/index.js";
 
 afterEach(() => vi.restoreAllMocks());
 // Many sign-ups from one test IP: reset the per-IP code limit between tests (it is tested in worker.spec.js).
@@ -441,5 +442,68 @@ describe("refund notices", () => {
     await refund(owner.email, order);
     expect(resendCalls.map((c) => c.body.to[0])).toEqual([owner.email]);
     expect(resendCalls[0].body.text).not.toContain("assigned to team members");
+  });
+});
+
+describe("stopping team invites (CASL unsubscribe)", () => {
+  it("every invite has a stop link that works signed out, and stops further invites to that address", async () => {
+    const { owner, team } = await makeTeam();
+    const email = `stop-${uid()}@example.com`;
+    const { msg } = await invite(owner, email);
+    const m = /\/account\/team\/stop-invites\?k=([a-f0-9]{40})/.exec(msg.text);
+    expect(m).not.toBeNull();
+    expect(msg.html).toContain(`/account/team/stop-invites?k=${m[1]}`);
+    expect(msg.text).toContain("sent by LlmentZero at the request of the team owner");
+    expect(msg.text).not.toContain(encodeURIComponent(email));
+
+    // Opening the link changes nothing (mail scanners follow links); the button does.
+    const page = await call(`/account/team/stop-invites?k=${m[1]}`);
+    expect(page.status).toBe(200);
+    expect(await page.text()).toContain("Stop team invites</button>");
+    expect(await env.DB.prepare("SELECT COUNT(*) AS n FROM invite_optouts").first("n")).toBe(0);
+    expect((await form("/account/team/stop-invites", { k: m[1] }, { headers: { Origin: "https://evil.example" } })).status).toBe(403);
+    const done = await form("/account/team/stop-invites", { k: m[1] });
+    expect(done.status).toBe(200);
+    expect(await done.text()).toContain("Team invites stopped");
+    expect((await form("/account/team/stop-invites", { k: m[1] })).status).toBe(200); // twice is fine
+    const stored = await env.DB.prepare("SELECT * FROM invite_optouts").all();
+    expect(stored.results).toHaveLength(1);
+    expect(JSON.stringify(stored.results)).not.toContain(email);
+
+    // The owner (or anyone) can't invite that address again; no email is sent.
+    const { resendCalls } = mockOutbound();
+    const r = await post("/account/team/invite", { invite_email: email.toUpperCase() }, owner.cookie);
+    expect(r.status).toBe(400);
+    expect(await r.text()).toContain("asked not to get team invites");
+    expect(resendCalls).toHaveLength(0);
+    expect(await env.DB.prepare("SELECT COUNT(*) AS n FROM team_invites WHERE team_id = ? AND email = ?").bind(team.id, email).first("n")).toBe(1);
+    await env.DB.prepare("DELETE FROM invite_optouts").run();
+  });
+
+  it("rejects a broken stop link without storing anything", async () => {
+    expect((await call("/account/team/stop-invites?k=nope")).status).toBe(400);
+    expect((await form("/account/team/stop-invites", { k: "x".repeat(40) })).status).toBe(400);
+    expect(await env.DB.prepare("SELECT COUNT(*) AS n FROM invite_optouts").first("n")).toBe(0);
+  });
+});
+
+describe("invite retention", () => {
+  it("deletes unaccepted invites 30 days after they expire or are cancelled, and keeps the rest", async () => {
+    const { owner, team } = await makeTeam();
+    const ownerId = await userId(owner.email);
+    const t = Math.floor(Date.now() / 1000);
+    const d = 86400;
+    const rows = [
+      ["ti_old_expired", null, t - 40 * d, t - 33 * d, null],
+      ["ti_recent_expired", null, t - 20 * d, t - 13 * d, null],
+      ["ti_old_cancelled", null, t - 32 * d, t - 25 * d, t - 31 * d],
+      ["ti_pending", null, t - d, t + 6 * d, null],
+      ["ti_old_accepted", t - 39 * d, t - 40 * d, t - 33 * d, null],
+    ];
+    for (const [id, acc, created, exp, can] of rows)
+      await env.DB.prepare("INSERT INTO team_invites (id, team_id, email, token_hash, invited_by, created_at, expires_at, accepted_at, cancelled_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").bind(id, team.id, `${id}@example.com`, id, ownerId, created, exp, acc, can).run();
+    await worker.scheduled({}, env, { waitUntil() {} });
+    const left = (await env.DB.prepare("SELECT id FROM team_invites WHERE team_id = ? ORDER BY id").bind(team.id).all()).results.map((r) => r.id);
+    expect(left).toEqual(["ti_old_accepted", "ti_pending", "ti_recent_expired"]);
   });
 });

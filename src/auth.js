@@ -39,7 +39,7 @@ ${emailField(errors, email, { hint: "We'll email you a 6-digit code to confirm i
 ${passwordField(errors, { id: "new_password", label: "Create a password", autocomplete: "new-password", hint: NEW_PASSWORD_HINT })}
 ${passwordField(errors, { id: "confirm_password", label: "Confirm password", autocomplete: "new-password" })}
 ${termsCheckbox(errors, terms)}
-<fieldset class="field"><legend>Email updates (optional)</legend><div class="check"><input id="marketing" name="marketing" type="checkbox" value="yes"${marketing ? " checked" : ""} aria-describedby="marketing-hint"><label for="marketing">Yes, email me about new skills and offers from LlmentZero.</label></div><p class="hint" id="marketing-hint">Optional. You can unsubscribe at any time. We never share your email.</p></fieldset>
+<fieldset class="field"><legend>Email updates (optional)</legend><div class="check"><input id="marketing" name="marketing" type="checkbox" value="yes"${marketing ? " checked" : ""} aria-describedby="marketing-hint"><label for="marketing">Yes, email me about new skills and offers from LlmentZero.</label></div><p class="hint" id="marketing-hint">Optional. From LlmentZero, llmentzero@gmail.com. You can withdraw consent and unsubscribe at any time. We never sell your email address.</p></fieldset>
 ${turnstileWidget(env, "signup", errors)}
 <button type="submit" class="btn">Create your account</button>
 </form>

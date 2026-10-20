@@ -13,7 +13,7 @@ import { EmailError, sendEmail, teamInviteEmail } from "./lib/email.js";
 import { hit } from "./lib/ratelimit.js";
 import { acceptedCurrentTerms, getSession } from "./lib/session.js";
 import { poolFor } from "./lib/licences.js";
-import { esc, isValidEmail, normaliseEmail, now, randomId, randomToken, sha256Hex } from "./lib/util.js";
+import { esc, hmacHex, isValidEmail, normaliseEmail, now, randomId, randomToken, sha256Hex } from "./lib/util.js";
 import { audit, fmtDate, forbidden } from "./auth.js";
 
 export const TEAM_LIMITS = { invitesPerTeamDay: 20, inviteTtl: 7 * 86400, nameMin: 2, nameMax: 60, maxDevicesPerAssign: 100000 };
@@ -272,6 +272,7 @@ export async function postInvite(request, env) {
   else {
     const already = await env.DB.prepare("SELECT 1 AS ok FROM team_members m JOIN users u ON u.id = m.user_id WHERE m.team_id = ? AND u.email = ?").bind(team.id, email).first();
     if (already) err = "That person is already on your team";
+    else if (await optedOut(env, email)) err = "We can't send an invite to this address, because its owner has asked not to get team invites from LlmentZero";
   }
   if (err) return teamPage(env, user, { errors: { invite_email: err }, values, status: 400 });
   if (!(await hit(env, `invite:team:${team.id}`, TEAM_LIMITS.invitesPerTeamDay, 86400))) {
@@ -287,9 +288,11 @@ export async function postInvite(request, env) {
     env.DB.prepare("UPDATE team_invites SET cancelled_at = ? WHERE team_id = ? AND email = ? AND accepted_at IS NULL AND cancelled_at IS NULL").bind(t, team.id, email),
     env.DB.prepare("INSERT INTO team_invites (id, team_id, email, token_hash, invited_by, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)").bind(id, team.id, email, await sha256Hex(token), user.id, t, expires),
   ]);
-  const link = `${new URL(request.url).origin}/account/team/join?token=${encodeURIComponent(token)}`;
+  const origin = new URL(request.url).origin;
+  const link = `${origin}/account/team/join?token=${encodeURIComponent(token)}`;
+  const stopLink = `${origin}/account/team/stop-invites?k=${await optoutKey(env, email)}`;
   try {
-    await sendEmail(env, { to: email, ...teamInviteEmail({ teamName: team.name, inviterEmail: user.email, inviteeEmail: email, link, expiresOn: fmtDate(expires) }), idempotencyKey: `invite-${id}` });
+    await sendEmail(env, { to: email, ...teamInviteEmail({ teamName: team.name, inviterEmail: user.email, inviteeEmail: email, link, stopLink, expiresOn: fmtDate(expires) }), idempotencyKey: `invite-${id}` });
   } catch (e) {
     await env.DB.prepare("UPDATE team_invites SET cancelled_at = ? WHERE id = ?").bind(now(), id).run();
     await audit(env, "email.failed", { userId: user.id, detail: `team invite: ${e instanceof EmailError ? `${e.status || ""} ${e.message}` : String(e)}` });
@@ -312,6 +315,44 @@ export async function postCancelInvite(request, env) {
   const r = await env.DB.prepare("UPDATE team_invites SET cancelled_at = ? WHERE id = ? AND team_id = ? AND accepted_at IS NULL AND cancelled_at IS NULL").bind(now(), inviteId, team.id).run();
   if (r.meta?.changes) await audit(env, "team.invite_cancelled", { userId: user.id, detail: `team=${team.id} invite=${inviteId}` });
   return redirect("/account/team?done=cancelled");
+}
+
+// ---------- Stop team invites (CASL unsubscribe) ----------
+// Every invite email carries a link that stops further team invites to that address. The link
+// holds a keyed hash of the address (not the address), works without signing in and never
+// expires, so it stays valid well beyond the 60 days CASL s. 11(2) requires.
+
+const OPTOUT_RE = /^[a-f0-9]{40}$/;
+
+export async function optoutKey(env, email) {
+  if (!env.IP_HASH_KEY) throw new Error("IP_HASH_KEY secret is not set");
+  return (await hmacHex(env.IP_HASH_KEY, `invite-optout:${email}`)).slice(0, 40);
+}
+
+async function optedOut(env, email) {
+  return !!(await env.DB.prepare("SELECT 1 AS ok FROM invite_optouts WHERE email_key = ?").bind(await optoutKey(env, email)).first());
+}
+
+export async function getStopInvites(request, env) {
+  const { user } = await getSession(env, request);
+  const k = new URL(request.url).searchParams.get("k") || "";
+  if (!OPTOUT_RE.test(k)) return problemPage(user, "This link isn't complete", "Open the link from the invite email again, or email <a href=\"mailto:llmentzero@gmail.com\">llmentzero@gmail.com</a> and we'll stop team invites to your address.");
+  return page(
+    "Stop team invites to your email address?",
+    `<p class="eyebrow">Teams</p><h1>Stop team invites?</h1><p>If you stop them, no one will be able to invite your email address to a team on LlmentZero. Invites you already have will stop working when they expire.</p><p>This doesn't affect sign-in codes or emails about an account or licence you already have.</p><form method="post" action="/account/team/stop-invites"><input type="hidden" name="k" value="${esc(k)}"><button type="submit" class="btn">Stop team invites</button></form><p>If you change your mind later, email <a href="mailto:llmentzero@gmail.com">llmentzero@gmail.com</a>.</p>`,
+    user
+  );
+}
+
+export async function postStopInvites(request, env) {
+  if (!sameOrigin(request)) return forbidden();
+  const { user } = await getSession(env, request);
+  const f = await readForm(request);
+  const k = String(f.get("k") || "");
+  if (!OPTOUT_RE.test(k)) return problemPage(user, "This link isn't complete", "Open the link from the invite email again, or email <a href=\"mailto:llmentzero@gmail.com\">llmentzero@gmail.com</a> and we'll stop team invites to your address.");
+  await env.DB.prepare("INSERT INTO invite_optouts (email_key, created_at) VALUES (?, ?) ON CONFLICT (email_key) DO NOTHING").bind(k, now()).run();
+  await audit(env, "team.invites_stopped", { userId: user?.id || null, detail: `key=${k.slice(0, 8)}` });
+  return page("Team invites stopped", `<p class="eyebrow">Teams</p><h1>Team invites stopped</h1><p>We won't send any more team invites to your email address. If you change your mind, email <a href="mailto:llmentzero@gmail.com">llmentzero@gmail.com</a>.</p><p><a href="/">Go to the LlmentZero home page</a></p>`, user);
 }
 
 // ---------- Join (accept an invite) ----------
