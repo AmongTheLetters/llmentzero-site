@@ -8,6 +8,12 @@ compatibility_date = "2026-10-01"
 workers_dev = true
 preview_urls = false
 
+# llmentzero.com is served by this Worker as a Custom Domain (Cloudflare creates the DNS record and certificate).
+# www.llmentzero.com is a separate tiny Worker (www-redirect/) that 301s to the apex.
+routes = [
+  { pattern = "llmentzero.com", custom_domain = true }
+]
+
 [build]
 command = "node scripts/build-assets.mjs"
 
@@ -52,8 +58,3 @@ crons = ["17 7 * * *"]   # daily clean-up at 07:17 UTC (3:17 AM Toronto EDT)
 [observability]
 enabled = true
 
-# Go-live step (README "Move the domain"): uncomment to serve llmentzero.com from this Worker.
-# routes = [
-#   { pattern = "llmentzero.com", custom_domain = true },
-#   { pattern = "www.llmentzero.com", custom_domain = true }
-# ]

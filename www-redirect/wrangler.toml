@@ -1,0 +1,10 @@
+# Tiny Worker that 301-redirects www.llmentzero.com to https://llmentzero.com.
+# Separate from the main Worker so static pages on the apex stay free (served from assets, no Worker run).
+name = "llmentzero-www"
+main = "worker.js"
+compatibility_date = "2026-10-01"
+workers_dev = false
+preview_urls = false
+routes = [
+  { pattern = "www.llmentzero.com", custom_domain = true }
+]

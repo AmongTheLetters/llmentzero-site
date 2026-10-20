@@ -99,7 +99,7 @@ npm test                                 # vitest in the Workers runtime
    ```
    Record the new canaries from `../private/canary-evidence.csv` in `legal/EVIDENCE_LOG.md` and run the baseline checks before publishing.
 7. **Payhip:** under Settings → Developer, set the webhook URL `https://llmentzero.com/webhooks/payhip` with the events `paid` and `refunded`. In `wrangler.toml`, set `PAYHIP_URL` (the Business Licence product page) and `PAYHIP_PRODUCTS` (product_id → `business` / `deployment`). Then redeploy.
-8. **Move the domain** (a few minutes of downtime):
+8. **Move the domain** (done Oct 19, 2026, 10:44 PM Toronto; DNS before the move is saved in `../backups/dns/pre-move-*.json`). The apex is a Workers Custom Domain of this Worker; `www` is the tiny `www-redirect/` Worker (deploy with `cd www-redirect && npx wrangler deploy`), which 301s to the apex. Original steps (a few minutes of downtime):
    1. In Cloudflare DNS for llmentzero.com, delete the GitHub Pages `A`/`AAAA` records on `@` and the `www` CNAME. Leave the email (`mail`, `_dmarc`, `resend._domainkey`, MX/TXT) records alone.
    2. In `wrangler.toml`, uncomment the `routes` block, then run `npm run deploy`. Cloudflare creates the DNS records and certificates.
    3. Check `/`, `/licence`, `/robots.txt`, `/.well-known/tdmrep.json`, `/signup` and a download.
