@@ -54,7 +54,7 @@
   function render() {
     const signedIn = !!(info && info.i);
     const links = signedIn
-      ? [['/account', 'Account'], ['/account#licences', 'My licences'], ['/account#downloads', 'Downloads']]
+      ? [['/account', 'Account'], ['/account#licences', 'My licences'], ['/account/team', 'Team'], ['/account#downloads', 'Downloads']]
       : [['/signin', 'Sign in'], ['/signup', 'Create account']];
     root.innerHTML =
       '<button type="button" class="acct-btn' + (signedIn ? ' is-in' : '') + '" aria-expanded="false" aria-controls="acct-menu">' +

@@ -57,3 +57,12 @@ input[type=password]{min-height:48px;font-size:1.1rem;border-radius:0}
 .notice-ok{border-left:4px solid var(--teal);padding:.6rem 1rem;background:var(--navy);margin:0 0 1.5rem}
 .linklike{background:none;border:0;padding:0;color:var(--teal);text-decoration:underline;font:inherit;cursor:pointer}.linklike:hover{color:var(--brass)}
 main dd,main td{overflow-wrap:anywhere}
+/* Teams */
+select,input[type=number]{width:100%;min-height:48px;font-size:1.1rem;border-radius:0;padding:.6rem;background:var(--navy);color:var(--ivory);border:1px solid var(--mist);font-family:inherit}
+input[type=number]{max-width:10rem}
+select:focus-visible{outline:3px solid var(--brass);outline-offset:2px}
+.has-error select,.has-error input[type=number]{border:2px solid #FF9C94}
+.confirm-box{margin:0 0 1.5rem}.confirm-box p{margin:.4rem 0}
+.confirm-actions .btn{margin:.4rem .6rem .4rem 0}
+td form{margin:0}
+form.stack{margin-bottom:2.5rem}

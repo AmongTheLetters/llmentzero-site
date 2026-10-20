@@ -84,3 +84,15 @@ export function noAccountEmail({ origin }) {
     html: wrapHtml(`<p>Hi there,</p><p>Someone (hopefully you) tried to sign in to LlmentZero with this email address, but there's no account for it yet.</p><p><a href="${esc(origin)}/signup" style="color:#0b6e66">Create a free account</a></p><p>If this wasn't you, you can ignore this email.</p>`),
   };
 }
+
+/**
+ * Team invite. The team name is limited to letters, numbers, spaces and simple punctuation
+ * (src/teams.js), so it can't carry a link. It is still escaped in the HTML version.
+ */
+export function teamInviteEmail({ teamName, inviterEmail, inviteeEmail, link, expiresOn }) {
+  return {
+    subject: "You're invited to join a team on LlmentZero",
+    text: `Hi there,\n\n${inviterEmail} has invited you to join the team "${teamName}" on LlmentZero. The team owner can give your account Business Licence devices.\n\nTo see the invite and accept it, open this link, then sign in or create a free account with this email address (${inviteeEmail}):\n\n${link}\n\nThe link works once and expires on ${expiresOn}. Nothing happens unless you accept. If you weren't expecting this, you can ignore this email.\n\nLlmentZero · Ontario, Canada · llmentzero@gmail.com\n`,
+    html: wrapHtml(`<p>Hi there,</p><p>${esc(inviterEmail)} has invited you to join the team <strong>${esc(teamName)}</strong> on LlmentZero. The team owner can give your account Business Licence devices.</p><p>To see the invite and accept it, open the link below, then sign in or create a free account with this email address (${esc(inviteeEmail)}).</p><p><a href="${esc(link)}" style="color:#0b6e66;font-weight:bold">See the team invite</a></p><p>The link works once and expires on ${esc(expiresOn)}. Nothing happens unless you accept. If you weren't expecting this, you can ignore this email.</p>`),
+  };
+}

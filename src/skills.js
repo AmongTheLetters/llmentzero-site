@@ -1,7 +1,8 @@
 // Skill catalogue, skill pages and gated downloads. Files live in D1 (no R2).
 import { html, redirect, securityHeaders, text } from "./lib/http.js";
 import { buyUrl, layout, licenceNotice, reminderMount } from "./lib/views.js";
-import { acceptedCurrentTerms, getSession, hasActiveBusinessLicence } from "./lib/session.js";
+import { acceptedCurrentTerms, getSession } from "./lib/session.js";
+import { hasActiveBusinessLicence } from "./lib/licences.js";
 import { LIMITS, hit } from "./lib/ratelimit.js";
 import { esc, ipHash, now, randomId } from "./lib/util.js";
 
@@ -10,7 +11,7 @@ export const LICENCE_LINE_MARK = "**Licence:** Free for personal use.";
 
 async function viewer(env, request) {
   const { user, cookies } = await getSession(env, request);
-  const licensed = user ? await hasActiveBusinessLicence(env, user.email) : false;
+  const licensed = user ? await hasActiveBusinessLicence(env, user) : false;
   return { user, cookies, showReminder: !!user && !licensed };
 }
 

@@ -354,11 +354,11 @@ describe("account button and /api/me", () => {
     expect(await res.json()).toEqual({ signedIn: true, initial: email[0].toUpperCase(), email });
   });
   it("records the revised privacy version on acceptance", async () => {
-    expect(LEGAL.privacy.version).toBe("LZ-PRIV-2026-10-16.4");
-    expect(LEGAL.terms.version).toBe("LZ-TERMS-2026-10-16.3");
-    expect(LEGAL.licence.version).toBe("LZ-LIC-2026-10-16.2");
+    expect(LEGAL.privacy.version).toBe("LZ-PRIV-2026-10-19.1");
+    expect(LEGAL.terms.version).toBe("LZ-TERMS-2026-10-19.1");
+    expect(LEGAL.licence.version).toBe("LZ-LIC-2026-10-19.1");
     const { email } = await signUp();
-    expect(await env.DB.prepare("SELECT privacy_version FROM terms_acceptances WHERE email = ?").bind(email).first("privacy_version")).toBe("LZ-PRIV-2026-10-16.4");
+    expect(await env.DB.prepare("SELECT privacy_version FROM terms_acceptances WHERE email = ?").bind(email).first("privacy_version")).toBe("LZ-PRIV-2026-10-19.1");
   });
 });
 

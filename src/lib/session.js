@@ -52,12 +52,6 @@ export async function destroySession(env, request) {
   return cookie(SESSION_COOKIE, "", { maxAge: 0 });
 }
 
-export async function hasActiveBusinessLicence(env, email) {
-  const row = await env.DB.prepare(
-    "SELECT 1 AS ok FROM licences WHERE email = ? AND status = 'active' AND licence_type IN ('business','deployment') LIMIT 1"
-  ).bind(email).first();
-  return !!row;
-}
 
 /** True when the user's latest acceptance matches the current Terms and Licence versions. */
 export async function acceptedCurrentTerms(env, userId) {

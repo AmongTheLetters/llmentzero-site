@@ -4,6 +4,7 @@
 import { getAccept, getAccount, getForgot, getMe, getPassword, postPassword, postPasswordCode, postSigninPassword, getSignin, getSignup, getVerify, postAccept, postSignin, postSignout, postSignup, postVerify } from "./auth.js";
 import { getCatalogue, getDownload, getSkill, notFound } from "./skills.js";
 import { postPayhip } from "./payhip.js";
+import { getJoin, getTeam, postAssign, postCancelInvite, postCreateTeam, postInvite, postJoin, postLeave, postRemove } from "./teams.js";
 import { html, text } from "./lib/http.js";
 import { layout } from "./lib/views.js";
 import { now } from "./lib/util.js";
@@ -24,6 +25,15 @@ const routes = {
   "GET /account/accept": getAccept,
   "POST /account/accept": postAccept,
   "POST /signout": postSignout,
+  "GET /account/team": getTeam,
+  "POST /account/team/create": postCreateTeam,
+  "POST /account/team/invite": postInvite,
+  "POST /account/team/invite/cancel": postCancelInvite,
+  "GET /account/team/join": getJoin,
+  "POST /account/team/join": postJoin,
+  "POST /account/team/assign": postAssign,
+  "POST /account/team/remove": postRemove,
+  "POST /account/team/leave": postLeave,
   "GET /skills": getCatalogue,
   "GET /api/me": getMe,
   "POST /webhooks/payhip": postPayhip,
@@ -67,6 +77,7 @@ export default {
       env.DB.prepare("DELETE FROM rate_limits WHERE window_start < ?").bind(t - 2 * day),
       env.DB.prepare("DELETE FROM downloads WHERE downloaded_at < ?").bind(t - 365 * day),
       env.DB.prepare("DELETE FROM audit_log WHERE at < ?").bind(t - 365 * day),
+      env.DB.prepare("DELETE FROM team_invites WHERE created_at < ?").bind(t - 365 * day),
     ]);
   },
 };
